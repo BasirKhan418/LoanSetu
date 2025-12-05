@@ -18,7 +18,11 @@
   },
   "packageManager": "npm@10.9.2",
   "workspaces": [
-    "apps/*",
+    "apps/docs",
+    "apps/web",
+    "apps/notification_engine",
+    "apps/validator_engine",
+    "apps/worker_cluster",
     "packages/*"
   ]
 }
