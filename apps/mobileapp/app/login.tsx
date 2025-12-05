@@ -17,6 +17,8 @@ import {
   View,
 } from 'react-native';
 
+import { useLanguage } from '@/contexts/LanguageContext';
+
 const { width, height } = Dimensions.get('window');
 const scale = Math.min(width / 375, height / 812);
 
@@ -26,33 +28,21 @@ export default function LoginScreen() {
   const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
-  const sendOTP = async (mobile: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true, message: 'OTP sent successfully!' };
-  };
-
-  const verifyOTP = async (mobile: string, otp: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return {success: true, message: 'Login successful!'};
-  };
+  const { initializeUserLanguage } = useLanguage();
 
   const handleSendOTP = async () => {
-    if (!mobile || mobile.length < 10) {
-      Alert.alert('Error', 'Please enter a valid mobile number');
+    if (!mobile) {
+      Alert.alert('Error', 'Please enter a mobile number');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      const result = await sendOTP(mobile);
-      if (result.success) {
-        Alert.alert('Success', result.message);
-        setStep('otp');
-      } else {
-        Alert.alert('Error', result.message);
-      }
+      // Accept any mobile number for testing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      Alert.alert('Success', 'OTP sent successfully!');
+      setStep('otp');
     } catch {
       Alert.alert('Error', 'Failed to send OTP. Please try again.');
     } finally {
@@ -61,20 +51,32 @@ export default function LoginScreen() {
   };
 
   const handleVerifyOTP = async () => {
-    if (!otp || otp.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+    if (!otp) {
+      Alert.alert('Error', 'Please enter OTP');
       return;
     }
 
     setIsLoading(true);
     
     try {
-      const result = await verifyOTP(mobile, otp);
-      if (result.success) {
-        router.replace('/(tabs)');
-      } else {
-        Alert.alert('Error', result.message);
-      }
+      // Accept any OTP for testing and create a mock user
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Create mock user without language preference for testing
+      const mockUser = {
+        id: 'test-user-' + Date.now(),
+        mobile: mobile,
+        name: 'Test User',
+        isActive: true,
+        languageCode: undefined // No language selected - will show language selection
+      };
+      
+      // Initialize user's language preference
+      initializeUserLanguage(mockUser.id, mockUser.languageCode);
+      
+      // Since no language is selected, always show language selection for testing
+      router.replace('/language-selection');
+      
     } catch {
       Alert.alert('Error', 'Verification failed. Please try again.');
     } finally {
@@ -83,9 +85,8 @@ export default function LoginScreen() {
   };
 
   const formatMobileNumber = (text: string) => {
-    // Remove non-digits and limit to 10 digits
     const cleaned = text.replace(/\D/g, '');
-    return cleaned.slice(0, 10);
+    return cleaned;
   };
 
   return (
@@ -108,7 +109,7 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('@/assets/favicon.png')}
+                source={require('@/assets/icon.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -125,7 +126,7 @@ export default function LoginScreen() {
           {step === 'mobile' ? (
             <>
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>📱 Mobile Number</Text>
+                <Text style={styles.inputLabel}>Mobile Number</Text>
                 <View style={styles.mobileInputContainer}>
                   <View style={styles.countryCodeContainer}>
                     <Text style={styles.countryCode}>+91</Text>
@@ -164,7 +165,7 @@ export default function LoginScreen() {
           ) : (
             <>
               <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>🔐 Verification Code</Text>
+                <Text style={styles.inputLabel}>Verification Code</Text>
                 <TextInput
                   style={styles.otpInput}
                   value={otp}

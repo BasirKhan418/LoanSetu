@@ -4,10 +4,13 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getTranslation } from '@/utils/translations';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { currentLanguage } = useLanguage();
 
   return (
     <Tabs
@@ -19,28 +22,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: getTranslation('home', currentLanguage.code),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Loans',
+          title: getTranslation('explore', currentLanguage.code),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="applications"
         options={{
-          title: 'Applications',
+          title: getTranslation('applications', currentLanguage.code),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="doc.text.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: getTranslation('profile', currentLanguage.code),
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
