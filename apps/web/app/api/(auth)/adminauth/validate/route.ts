@@ -14,7 +14,7 @@ export const POST = async(req:NextRequest)=>{
         if(!admin){
             return NextResponse.json({message:"Admin not found",success:false})
         }
-        const token = jwt.sign({ id: admin._id, email: admin.email ,name: admin.name}, process.env.JWT_SECRET!);
+        const token = jwt.sign({ id: admin._id, email: admin.email ,name: admin.name,type:"admin"}, process.env.JWT_SECRET!);
         return NextResponse.json({message:"OTP validated successfully", token, success:true});
     }
     catch(err){

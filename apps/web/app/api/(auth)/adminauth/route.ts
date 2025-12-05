@@ -2,14 +2,22 @@ import { NextResponse,NextRequest } from "next/server";
 import Admin from "../../../../models/Admin";
 import setConnectionRedis from "../../../../middleware/connectRedisClient";
 import { sendAdminOtpEmail } from "../../../../email/sendAdminOtpEmail";
+import { verifyAdminToken } from "../../../../utils/verifyToken";
+import { cookies } from "next/headers";
 export const POST = async(req:NextRequest)=>{
     try{
         const data =  await req.json();
+        const cookiesStore = await cookies();
+        const token = cookiesStore.get("token")?.value;
         const redisClient = setConnectionRedis();
         if(data.type=="createAdmin"){
             //add auth here
 
         //check admin exist or not
+        const val = verifyAdminToken(token||"");
+        if(val.data?.type!="admin"){
+            return NextResponse.json({message:"Unauthorized access",success:false})
+        }
         const findAdmin = await Admin.findOne({email:data.email});
         if(findAdmin){
             return NextResponse.json({message:"Admin with this email already exists",success:false})
