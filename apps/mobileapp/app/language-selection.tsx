@@ -3,16 +3,16 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  FlatList,
-  Platform,
-  StatusBar as RNStatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    FlatList,
+    Platform,
+    StatusBar as RNStatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -64,7 +64,7 @@ export default function LanguageSelectionScreen() {
       
       router.replace('/(tabs)');
     } catch {
-      Alert.alert('Error', 'Failed to save language preference');
+      Alert.alert(getTranslation('error', currentLanguage.code), getTranslation('failedSaveLanguage', currentLanguage.code));
     } finally {
       setIsLoading(false);
     }

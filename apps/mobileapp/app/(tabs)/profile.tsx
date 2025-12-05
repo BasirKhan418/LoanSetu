@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { Bell } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -14,8 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Bell } from 'lucide-react-native';
+import { getTranslation } from '../../utils/translations';
 
 const { width, height } = Dimensions.get('window');
 const scale = width / 375;
@@ -43,6 +45,12 @@ export default function ProfileScreen() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [showLoanStatus, setShowLoanStatus] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const insets = useSafeAreaInsets();
+
+  // Calculate tab bar height (same as in _layout.tsx)
+  const tabBarHeight = Platform.OS === 'ios' 
+    ? Math.max(80, 50 + insets.bottom) 
+    : Math.max(70, 60 + insets.bottom);
   
   // Mock user data for testing
   const user = {
@@ -121,12 +129,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      getTranslation('logout', currentLanguage.code),
+      getTranslation('logoutConfirm', currentLanguage.code),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: getTranslation('cancel', currentLanguage.code), style: 'cancel' },
         { 
-          text: 'Logout', 
+          text: getTranslation('logout', currentLanguage.code), 
           style: 'destructive',
           onPress: () => {
             router.replace('/login');
@@ -167,10 +175,14 @@ export default function ProfileScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+      >
         {/* Loan Information Cards - Horizontal Scroll */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>My Loans</Text>
+          <Text style={styles.sectionTitle}>{getTranslation('myLoans', currentLanguage.code)}</Text>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -189,13 +201,13 @@ export default function ProfileScreen() {
                   <Text style={styles.loanAmount}>{loan.amount}</Text>
                 </View>
                 <View style={styles.loanCardContent}>
-                  <Text style={styles.loanLabel}>Reference ID</Text>
+                  <Text style={styles.loanLabel}>{getTranslation('referenceId', currentLanguage.code)}</Text>
                   <Text style={styles.loanValue}>{loan.referenceId}</Text>
-                  <Text style={styles.loanLabel}>Scheme</Text>
+                  <Text style={styles.loanLabel}>{getTranslation('scheme', currentLanguage.code)}</Text>
                   <Text style={styles.loanSchemeName}>{loan.schemeName}</Text>
                 </View>
                 <View style={styles.tapIndicator}>
-                  <Text style={styles.tapText}>Tap for details</Text>
+                  <Text style={styles.tapText}>{getTranslation('tapForDetails', currentLanguage.code)}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -209,8 +221,8 @@ export default function ProfileScreen() {
               <Text style={styles.syncIconText}>☁️</Text>
             </View>
             <View style={styles.syncTextContainer}>
-              <Text style={styles.syncTitle}>Data Sync Status</Text>
-              <Text style={styles.syncSubtitle}>2 pending uploads. Connect to sync.</Text>
+              <Text style={styles.syncTitle}>{getTranslation('syncData', currentLanguage.code)}</Text>
+              <Text style={styles.syncSubtitle}>{getTranslation('syncSubtitle', currentLanguage.code)}</Text>
             </View>
           </View>
         </View>
@@ -225,7 +237,7 @@ export default function ProfileScreen() {
             <View style={styles.menuIconContainer}>
               <Text style={styles.menuOptionIcon}>🌐</Text>
             </View>
-            <Text style={styles.menuOptionText}>Select Language</Text>
+            <Text style={styles.menuOptionText}>{getTranslation('languageSettings', currentLanguage.code)}</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
@@ -237,7 +249,7 @@ export default function ProfileScreen() {
             <View style={styles.menuIconContainer}>
               <Bell size={Math.max(20, scale * 22)} color="#FF8C42" strokeWidth={2} />
             </View>
-            <Text style={styles.menuOptionText}>Enable Notifications</Text>
+            <Text style={styles.menuOptionText}>{getTranslation('enableNotifications', currentLanguage.code)}</Text>
             <View style={[styles.toggleSwitch, notificationsEnabled && styles.toggleSwitchActive]}>
               <View style={[styles.toggleThumb, notificationsEnabled && styles.toggleThumbActive]} />
             </View>
@@ -247,11 +259,10 @@ export default function ProfileScreen() {
         {/* Logout Section */}
         <View style={styles.logoutSection}>
           <TouchableOpacity onPress={handleLogout} activeOpacity={0.7}>
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>{getTranslation('logout', currentLanguage.code)}</Text>
           </TouchableOpacity>
         </View>
         
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Language Selection Modal */}
@@ -267,7 +278,7 @@ export default function ProfileScreen() {
         >
           {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Language</Text>
+            <Text style={styles.modalTitle}>{getTranslation('selectLanguage', currentLanguage.code)}</Text>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={handleLanguageCancel}
@@ -315,7 +326,7 @@ export default function ProfileScreen() {
               onPress={handleLanguageCancel}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{getTranslation('cancel', currentLanguage.code)}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -327,7 +338,7 @@ export default function ProfileScreen() {
               disabled={!selectedLanguage}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmButtonText}>Confirm</Text>
+              <Text style={styles.confirmButtonText}>{getTranslation('continue', currentLanguage.code)}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -346,7 +357,7 @@ export default function ProfileScreen() {
             <View style={styles.compactHeaderContent}>
               <View style={styles.compactLoanInfo}>
                 <Text style={styles.compactModalTitle}>
-                  {selectedLoan?.schemeName || 'Loan Status'}
+                  {selectedLoan?.schemeName || getTranslation('loanStatus', currentLanguage.code)}
                 </Text>
                 <Text style={styles.compactRefId}>{selectedLoan?.referenceId}</Text>
                 <Text style={styles.compactAmount}>{selectedLoan?.amount}</Text>
@@ -361,7 +372,7 @@ export default function ProfileScreen() {
           </View>
 
           <ScrollView style={styles.compactFlowContainer} showsVerticalScrollIndicator={false}>
-            <Text style={styles.compactFlowTitle}>Progress Timeline</Text>
+            <Text style={styles.compactFlowTitle}>{getTranslation('loanStatus', currentLanguage.code)}</Text>
             {selectedLoan?.statusFlow.map((step: any, index: number) => (
               <View key={index} style={styles.compactStatusStep}>
                 <View style={styles.compactStepIndicator}>
@@ -541,7 +552,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomSpacer: {
-    height: Math.max(40, height * 0.05),
+    // Dynamic height is set inline based on tab bar height
+    minHeight: 40,
   },
   
   // Section Styles
