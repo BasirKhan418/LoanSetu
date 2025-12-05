@@ -12,11 +12,15 @@ import {
   View
 } from 'react-native';
 
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslation } from '@/utils/translations';
+
 const { width, height } = Dimensions.get('window');
 const scale = Math.min(width / 375, height / 812);
 
 export default function SplashScreenComponent() {
   const router = useRouter();
+  const { currentLanguage } = useLanguage();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -37,14 +41,14 @@ export default function SplashScreenComponent() {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
-            source={require('@/assets/favicon.png')}
+            source={require('@/assets/icon.png')}
             style={styles.logo}
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.title}>LoanSetu</Text>
+        <Text style={styles.title}>{getTranslation('appName', currentLanguage.code)}</Text>
         <Text style={styles.subtitle}>
-          Loan Utilization Verification Platform
+          {getTranslation('appTagline', currentLanguage.code)}
         </Text>
         <View style={styles.headerUnderline} />
       </View>

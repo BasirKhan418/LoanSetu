@@ -1,19 +1,49 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { currentLanguage, availableLanguages, setLanguage } = useLanguage();
   
-  // Mock user data - in real app, get from context
+  // Mock user data for testing
   const user = {
-    name: 'John Doe',
+    name: 'Test User',
     mobile: '+919876543210',
-    email: 'john.doe@example.com',
-    userId: 'LS001',
+    userId: 'TEST001',
     joinDate: '2024-01-15',
+  };
+
+  const handleLanguageChange = () => {
+    const buttons = [
+      ...availableLanguages.map(lang => ({
+        text: `${lang.flag} ${lang.nativeName}`,
+        onPress: async () => {
+          try {
+            // Update language in context (immediate UI update)
+            setLanguage(lang);
+            
+            // Simulate saving (for testing)
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            Alert.alert('Success', `Language changed to ${lang.nativeName}`);
+          } catch (error) {
+            console.error('Error changing language:', error);
+            Alert.alert('Error', 'Failed to change language');
+          }
+        }
+      })),
+      { text: 'Cancel', style: 'cancel' as const }
+    ];
+    
+    Alert.alert(
+      'Change Language',
+      'Select your preferred language',
+      buttons
+    );
   };
 
   const handleLogout = () => {
@@ -26,7 +56,7 @@ export default function ProfileScreen() {
           text: 'Logout', 
           style: 'destructive',
           onPress: () => {
-            // Clear user session and navigate to splash
+            // Simple logout for testing
             router.replace('/splash');
           }
         },
@@ -35,13 +65,16 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
-    { title: 'Personal Information', icon: '👤' },
-    { title: 'Document Verification', icon: '📄' },
-    { title: 'Bank Details', icon: '🏦' },
-    { title: 'Notification Settings', icon: '🔔' },
-    { title: 'Help & Support', icon: '❓' },
-    { title: 'Privacy Policy', icon: '🔒' },
+    { title: 'Personal Information', icon: '👤', onPress: () => {} },
+    { title: 'Document Verification', icon: '📄', onPress: () => {} },
+    { title: 'Bank Details', icon: '🏦', onPress: () => {} },
+    { title: `Language (${currentLanguage.nativeName})`, icon: '🌐', onPress: handleLanguageChange },
+    { title: 'Notification Settings', icon: '🔔', onPress: () => {} },
+    { title: 'Help & Support', icon: '❓', onPress: () => {} },
+    { title: 'Privacy Policy', icon: '🔒', onPress: () => {} },
   ];
+
+  // User is always available now with mock data
 
   return (
     <ScrollView style={styles.container}>
@@ -78,7 +111,7 @@ export default function ProfileScreen() {
 
         <View style={styles.menuSection}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity key={index} style={styles.menuItem}>
+            <TouchableOpacity key={index} style={styles.menuItem} onPress={item.onPress}>
               <Text style={styles.menuIcon}>{item.icon}</Text>
               <Text style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuArrow}>›</Text>

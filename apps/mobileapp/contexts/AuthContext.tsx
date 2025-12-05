@@ -1,12 +1,12 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-// Note: You'll need to install AsyncStorage: npx expo install @react-native-async-storage/async-storage
-// For now, using simple state management
 
 interface User {
   id: string;
   mobile: string;
   name: string;
   isActive: boolean;
+  languageCode?: string; // User's preferred language
 }
 
 interface AuthContextType {
@@ -14,6 +14,7 @@ interface AuthContextType {
   sendOTP: (mobile: string) => Promise<{ success: boolean; message: string }>;
   verifyOTP: (mobile: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
   logout: () => Promise<void>;
+  updateUserLanguage: (languageCode: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -29,9 +30,9 @@ export function useAuth() {
 
 // Mock database of admin-added users
 const mockUsers: User[] = [
-  { id: '1', mobile: '+919876543210', name: 'John Doe', isActive: true },
-  { id: '2', mobile: '+919876543211', name: 'Jane Smith', isActive: true },
-  { id: '3', mobile: '+919876543212', name: 'Bob Johnson', isActive: false },
+  { id: '1', mobile: '+919876543210', name: 'John Doe', isActive: true, languageCode: undefined }, // No language selected
+  { id: '2', mobile: '+919876543211', name: 'Jane Smith', isActive: true, languageCode: 'hi' }, // Hindi selected
+  { id: '3', mobile: '+919876543212', name: 'Bob Johnson', isActive: false, languageCode: undefined },
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -44,8 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadStoredAuth = async () => {
     try {
-      // For now using localStorage simulation - replace with AsyncStorage when installed
-      const storedUser = localStorage?.getItem('user');
+      const storedUser = await AsyncStorage.getItem('user');
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Mock OTP verification (in real app, verify with backend)
       if (otp === '123456') {
         // Store user session
-        localStorage?.setItem('user', JSON.stringify(foundUser));
+        await AsyncStorage.setItem('user', JSON.stringify(foundUser));
         setUser(foundUser);
         return { success: true, message: 'Login successful!', user: foundUser };
       } else {
@@ -118,9 +118,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUserLanguage = async (languageCode: string) => {
+    if (!user) return;
+    
+    try {
+      // Update user object with new language
+      const updatedUser = { ...user, languageCode };
+      
+      // In real app, this would be an API call to update user language in backend
+      // For now, just update local state and storage
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      // Also update the mock users array for demo purposes
+      const userIndex = mockUsers.findIndex(u => u.id === user.id);
+      if (userIndex !== -1) {
+        mockUsers[userIndex].languageCode = languageCode;
+      }
+    } catch (error) {
+      console.error('Failed to update user language:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
-      localStorage?.removeItem('user');
+      await AsyncStorage.removeItem('user');
       setUser(null);
     } catch (error) {
       console.error('Logout failed:', error);
@@ -128,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, sendOTP, verifyOTP, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, sendOTP, verifyOTP, logout, updateUserLanguage, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
