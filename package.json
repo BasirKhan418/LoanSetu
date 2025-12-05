@@ -24,5 +24,10 @@
     "apps/validator_engine",
     "apps/worker_cluster",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.0.0"
+  }
 }
