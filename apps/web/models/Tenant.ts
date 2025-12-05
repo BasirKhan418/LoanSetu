@@ -5,5 +5,4 @@ const TenantSchema = new mongoose.Schema({
   logoUrl: { type: String },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
-const Tenant = mongoose.model("Tenant", TenantSchema);
-export default Tenant;
+export default mongoose.models?.Tenant || mongoose.model("Tenant", TenantSchema);
