@@ -1,12 +1,24 @@
 import { NextResponse,NextRequest } from "next/server";
 import Tenant from "../../../../models/Tenant";
 import ConnectDb from "../../../../middleware/connectDb";
-export const GET = async()=>{
+export const GET = async(req:NextRequest)=>{
     try{
         await ConnectDb();
-        const tenants = await Tenant.find();
-
-        return NextResponse.json({message:"Tenants fetched successfully",data:tenants,success:true})
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
+        
+        if (id) {
+            // Fetch single tenant by ID
+            const tenant = await Tenant.findById(id);
+            if (!tenant) {
+                return NextResponse.json({message:"Tenant not found",success:false})
+            }
+            return NextResponse.json({message:"Tenant fetched successfully",data:tenant,success:true})
+        } else {
+            // Fetch all tenants
+            const tenants = await Tenant.find();
+            return NextResponse.json({message:"Tenants fetched successfully",data:tenants,success:true})
+        }
     }
     catch(err){
         return NextResponse.json({message:"Error fetching tenants",success:false})

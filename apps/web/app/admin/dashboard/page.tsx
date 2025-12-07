@@ -26,7 +26,6 @@ export default function AdminDashboardPage() {
 
   const validateAdminSession = async () => {
     try {
-      // Check for admin token in cookie (the token is stored in httpOnly cookie named "token")
       const token = getCookie("token");
       
       if (!token) {
@@ -34,25 +33,22 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      // Validate token with backend using the /api/verify endpoint
       const response = await fetch("/api/verify", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // Important: include cookies in the request
+        credentials: "include", 
       });
 
       const data = await response.json();
 
       if (!data.success || data.type !== "admin") {
-        // Invalid token or not an admin
         document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
         router.push("/admin/signin");
         return;
       }
 
-      // Check if admin is verified and active
       if (!data.data.isVerified) {
         router.push("/admin/signin?error=not-verified");
         return;
@@ -63,7 +59,6 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      // Set admin data
       setAdminData(data.data);
       setLoading(false);
     } catch (error) {

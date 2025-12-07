@@ -5,9 +5,7 @@ import {
   IconBuildingBank,
   IconUserShield,
   IconBuilding,
-  IconPlus,
   IconEdit,
-  IconTrash,
   IconSearch,
   IconRefresh,
 } from "@tabler/icons-react";
@@ -43,7 +41,6 @@ export function Dashboard({ className }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
   const [stats, setStats] = useState({
     totalTenants: 0,
     totalUsers: 0,
@@ -51,7 +48,6 @@ export function Dashboard({ className }: DashboardProps) {
     totalOfficers: 0,
   });
 
-  // Fetch data on component mount
   useEffect(() => {
     fetchDashboardData();
   }, [activeTab]);
@@ -76,7 +72,6 @@ export function Dashboard({ className }: DashboardProps) {
           setError(data.message || "Failed to fetch data");
         }
       }
-      // Add similar fetch calls for users, banks, officers when those APIs are ready
     } catch (err) {
       setError("Error fetching dashboard data");
       console.error(err);
@@ -85,29 +80,7 @@ export function Dashboard({ className }: DashboardProps) {
     }
   };
 
-  const handleDeleteTenant = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this tenant?")) return;
-    
-    try {
-      const response = await fetch("/api/tenant", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id }),
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        fetchDashboardData();
-      } else {
-        alert(data.message || "Failed to delete tenant");
-      }
-    } catch (err) {
-      alert("Error deleting tenant");
-      console.error(err);
-    }
-  };
+
 
   const statsCards: StatsCard[] = [
     {
@@ -150,8 +123,7 @@ export function Dashboard({ className }: DashboardProps) {
   return (
     <div className={cn("flex flex-1 flex-col", className)}>
       <div className="flex h-full w-full flex-1 flex-col gap-4 rounded-tl-2xl border border-neutral-200 bg-white p-4 md:p-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-neutral-200">
+=        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-neutral-200">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
               Admin Dashboard
@@ -244,16 +216,6 @@ export function Dashboard({ className }: DashboardProps) {
             <div className="h-full rounded-xl border border-neutral-200 bg-white p-6">
               <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    setActiveTab("tenants");
-                    setShowAddModal(true);
-                  }}
-                  className="p-4 rounded-lg bg-white border border-neutral-200 hover:border-orange-500 transition-colors"
-                >
-                  <IconPlus className="h-6 w-6 mx-auto mb-2 text-orange-600" />
-                  <p className="text-sm font-medium">Add Tenant</p>
-                </button>
                 <button className="p-4 rounded-lg bg-white border border-neutral-200 hover:border-orange-500 transition-colors">
                   <IconUsers className="h-6 w-6 mx-auto mb-2 text-blue-600" />
                   <p className="text-sm font-medium">Add User</p>
@@ -273,7 +235,7 @@ export function Dashboard({ className }: DashboardProps) {
 
         {activeTab === "tenants" && (
           <div className="flex-1 flex flex-col gap-4">
-            {/* Search and Add */}
+            {/* Search */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
@@ -285,13 +247,6 @@ export function Dashboard({ className }: DashboardProps) {
                   className="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
               </div>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors whitespace-nowrap"
-              >
-                <IconPlus className="h-4 w-4" />
-                Add Tenant
-              </button>
             </div>
 
             {/* Table */}
@@ -312,7 +267,7 @@ export function Dashboard({ className }: DashboardProps) {
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">
-                      Actions
+                      Action
                     </th>
                   </tr>
                 </thead>
@@ -353,21 +308,12 @@ export function Dashboard({ className }: DashboardProps) {
                           </span>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex gap-2">
-                            <button
-                              className="p-1 rounded hover:bg-neutral-100 transition-colors"
-                              title="Edit"
-                            >
-                              <IconEdit className="h-4 w-4 text-blue-600" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTenant(tenant._id)}
-                              className="p-1 rounded hover:bg-neutral-100 transition-colors"
-                              title="Delete"
-                            >
-                              <IconTrash className="h-4 w-4 text-red-600" />
-                            </button>
-                          </div>
+                          <button
+                            className="p-1 rounded hover:bg-neutral-100 transition-colors"
+                            title="Edit"
+                          >
+                            <IconEdit className="h-4 w-4 text-blue-600" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -397,24 +343,6 @@ export function Dashboard({ className }: DashboardProps) {
           </div>
         )}
       </div>
-
-      {/* Add Modal Placeholder */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Add New Tenant</h3>
-            <p className="text-neutral-600 mb-4">
-              Tenant creation form will be implemented here
-            </p>
-            <button
-              onClick={() => setShowAddModal(false)}
-              className="w-full px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
