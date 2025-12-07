@@ -5,24 +5,130 @@ import { Input } from "../../../components/ui/input";
 import { cn } from "../../../lib/utils";
 import Image from "next/image";
 import Navbar from "../../../components/navbar";
-import { Smartphone, Wifi, CheckCircle2 } from "lucide-react";
+import { Smartphone, Wifi, CheckCircle2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function StateAdminSignIn() {
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [showOtpField, setShowOtpField] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const router = useRouter();
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  // Email validation
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // OTP validation
+  const validateOtp = (otp: string): boolean => {
+    return otp.length === 6 && /^\d+$/.test(otp);
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mobileNumber.length === 10) {
-      setShowOtpField(true);
-      console.log("Sending OTP to:", mobileNumber);
+    setError("");
+    setSuccess("");
+
+    // Validate email
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/adminauth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          type: "login",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setShowOtpField(true);
+        setSuccess("OTP sent successfully! Please check your email.");
+        setError("");
+      } else {
+        setError(data.message || "Failed to send OTP. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error sending OTP:", err);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Form submitted", { mobileNumber, otp });
+    setError("");
+    setSuccess("");
+
+    // Validate OTP
+    if (!otp.trim()) {
+      setError("Please enter the OTP");
+      return;
+    }
+
+    if (!validateOtp(otp)) {
+      setError("Please enter a valid 6-digit OTP");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/adminauth/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          otp: otp.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Store token in cookie/localStorage if needed
+        if (data.token) {
+          document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+        }
+        
+        setSuccess("Login successful! Redirecting...");
+        setError("");
+        
+        // Redirect to admin dashboard
+        setTimeout(() => {
+          router.push("/admin/dashboard");
+        }, 1000);
+      } else {
+        setError(data.message || "Invalid OTP. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error validating OTP:", err);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,39 +157,57 @@ export default function StateAdminSignIn() {
 
                 <div className="mb-5">
                   <h2 className="text-xl font-bold text-neutral-800">
-                    Sign in to your account
+                    Admin Sign In
                   </h2>
                   <p className="mt-1 text-xs text-neutral-600">
-                    Use your registered mobile number to continue.
+                    Use your registered email address to continue.
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                  <LabelInputContainer className="mb-3">
-                    <Label htmlFor="mobile">Mobile Number</Label>
-                    <div className="flex gap-2">
-                      <div className="flex items-center justify-center rounded-md bg-neutral-100 px-3 text-sm font-medium text-neutral-700">
-                        +91
-                      </div>
-                      <Input
-                        id="mobile"
-                        placeholder="9876543210"
-                        type="tel"
-                        maxLength={10}
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ""))}
-                        required
-                      />
+                  {/* Error Message */}
+                  {error && (
+                    <div className="mb-3 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                      {error}
                     </div>
+                  )}
+
+                  {/* Success Message */}
+                  {success && (
+                    <div className="mb-3 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+                      {success}
+                    </div>
+                  )}
+
+                  <LabelInputContainer className="mb-3">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      placeholder="admin@example.com"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={showOtpField || loading}
+                      required
+                      autoComplete="email"
+                    />
                   </LabelInputContainer>
 
                   {!showOtpField ? (
                     <button
                       onClick={handleSendOtp}
-                      className="mb-3 h-10 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                      className="mb-3 h-10 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                       type="button"
+                      disabled={loading}
                     >
-                      Send OTP
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Sending OTP...
+                        </>
+                      ) : (
+                        "Send OTP"
+                      )}
                     </button>
                   ) : (
                     <>
@@ -96,15 +220,34 @@ export default function StateAdminSignIn() {
                           maxLength={6}
                           value={otp}
                           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                          disabled={loading}
                           required
+                          autoComplete="one-time-code"
                         />
                       </LabelInputContainer>
 
                       <button
-                        className="mb-3 h-10 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                        className="mb-3 h-10 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                         type="submit"
+                        disabled={loading}
                       >
-                        Continue
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          "Continue"
+                        )}
+                      </button>
+
+                      <button
+                        onClick={handleSendOtp}
+                        className="mb-3 h-9 w-full rounded-lg bg-neutral-100 font-medium text-neutral-700 text-sm transition-all hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        type="button"
+                        disabled={loading}
+                      >
+                        Resend OTP
                       </button>
                     </>
                   )}
@@ -153,7 +296,7 @@ export default function StateAdminSignIn() {
 
               {/* Mini feature chips */}
               <div className="flex flex-wrap gap-2">
-                <FeatureChip icon={<Smartphone className="h-3.5 w-3.5" />} text="Mobile number login" />
+                <FeatureChip icon={<Smartphone className="h-3.5 w-3.5" />} text="Secure email OTP login" />
                 <FeatureChip icon={<Wifi className="h-3.5 w-3.5" />} text="Offline capture, later sync" />
                 <FeatureChip icon={<CheckCircle2 className="h-3.5 w-3.5" />} text="Remote officer approval" />
               </div>
