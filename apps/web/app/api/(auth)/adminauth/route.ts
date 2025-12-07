@@ -1,11 +1,13 @@
 import { NextResponse,NextRequest } from "next/server";
 import Admin from "../../../../models/Admin";
+import ConnectDb from "../../../../middleware/connectDb";
 import setConnectionRedis from "../../../../middleware/connectRedisClient";
 import { sendAdminOtpEmail } from "../../../../email/sendAdminOtpEmail";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
 import { cookies } from "next/headers";
 export const POST = async(req:NextRequest)=>{
     try{
+        await ConnectDb();
         const data =  await req.json();
         const cookiesStore = await cookies();
         const token = cookiesStore.get("token")?.value;
@@ -18,7 +20,7 @@ export const POST = async(req:NextRequest)=>{
         if(val.data?.type!="admin"){
             return NextResponse.json({message:"Unauthorized access",success:false})
         }
-        const findAdmin = await Admin.findOne({email:data.email}as any);
+        const findAdmin = await Admin.findOne({email:data.email});
         if(findAdmin){
             return NextResponse.json({message:"Admin with this email already exists",success:false})
         }
@@ -27,7 +29,7 @@ export const POST = async(req:NextRequest)=>{
         return NextResponse.json({message:"Admin created successfully",data:newAdmin,success:true});
         }
         else{
-            const findAdmin = await Admin.findOne({email:data.email}as any);
+            const findAdmin = await Admin.findOne({email:data.email});
             if(!findAdmin){
                 return NextResponse.json({message:"Admin not found",success:false})
             }
