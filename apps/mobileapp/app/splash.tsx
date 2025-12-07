@@ -3,13 +3,13 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import {
-  Dimensions,
-  Image,
-  Platform,
-  StatusBar as RNStatusBar,
-  StyleSheet,
-  Text,
-  View
+    Dimensions,
+    Image,
+    Platform,
+    StatusBar as RNStatusBar,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -65,7 +65,7 @@ export default function SplashScreenComponent() {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Trusted by Banks & Financial Institutions
+          {getTranslation('trustedByBanks', currentLanguage.code)}
         </Text>
       </View>
     </LinearGradient>

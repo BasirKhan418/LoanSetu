@@ -1,11 +1,13 @@
+import { useLanguage } from '@/contexts/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StatusBar as RNStatusBar,
@@ -17,8 +19,6 @@ import {
   View,
 } from 'react-native';
 
-import { useLanguage } from '@/contexts/LanguageContext';
-
 const { width, height } = Dimensions.get('window');
 const scale = Math.min(width / 375, height / 812);
 
@@ -29,6 +29,27 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { initializeUserLanguage } = useLanguage();
+  
+  const scrollViewRef = useRef<ScrollView>(null);
+  const mobileInputRef = useRef<TextInput>(null);
+  const otpInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      // Don't auto scroll to top on keyboard hide - let user control scroll
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   const handleSendOTP = async () => {
     if (!mobile) {
@@ -43,6 +64,10 @@ export default function LoginScreen() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       Alert.alert('Success', 'OTP sent successfully!');
       setStep('otp');
+      
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 100);
     } catch {
       Alert.alert('Error', 'Failed to send OTP. Please try again.');
     } finally {
@@ -97,13 +122,18 @@ export default function LoginScreen() {
       <StatusBar style="dark" backgroundColor="#FFF8F5" />
       <KeyboardAvoidingView 
         style={styles.keyboardContainer} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        enabled={true}
       >
         <ScrollView 
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
+          bounces={false}
+          scrollEnabled={true}
+          nestedScrollEnabled={false}
         >
           {/* Header Section */}
           <View style={styles.header}>
@@ -132,6 +162,7 @@ export default function LoginScreen() {
                     <Text style={styles.countryCode}>+91</Text>
                   </View>
                   <TextInput
+                    ref={mobileInputRef}
                     style={styles.mobileInput}
                     value={mobile}
                     onChangeText={(text) => setMobile(formatMobileNumber(text))}
@@ -139,6 +170,11 @@ export default function LoginScreen() {
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
                     maxLength={10}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 300);
+                    }}
                   />
                 </View>
               </View>
@@ -147,6 +183,7 @@ export default function LoginScreen() {
                 style={[styles.primaryButton, isLoading && styles.buttonDisabled]} 
                 onPress={handleSendOTP}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>
                   {isLoading ? 'Sending OTP...' : 'Get OTP'}
@@ -167,6 +204,7 @@ export default function LoginScreen() {
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>Verification Code</Text>
                 <TextInput
+                  ref={otpInputRef}
                   style={styles.otpInput}
                   value={otp}
                   onChangeText={setOtp}
@@ -175,6 +213,11 @@ export default function LoginScreen() {
                   keyboardType="number-pad"
                   maxLength={6}
                   textAlign="center"
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 300);
+                  }}
                 />
               </View>
 
@@ -182,7 +225,11 @@ export default function LoginScreen() {
                 <Text style={styles.otpInfoText}>
                   Code sent to +91 {mobile}
                 </Text>
-                <TouchableOpacity onPress={() => setStep('mobile')} style={styles.changeNumberButton}>
+                <TouchableOpacity 
+                  onPress={() => setStep('mobile')} 
+                  style={styles.changeNumberButton}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.changeNumberText}>Change Number</Text>
                 </TouchableOpacity>
               </View>
@@ -191,6 +238,7 @@ export default function LoginScreen() {
                 style={[styles.primaryButton, isLoading && styles.buttonDisabled]} 
                 onPress={handleVerifyOTP}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>
                   {isLoading ? 'Verifying...' : 'Verify & Login'}
@@ -201,6 +249,7 @@ export default function LoginScreen() {
                 style={styles.resendButton}
                 onPress={handleSendOTP}
                 disabled={isLoading}
+                activeOpacity={0.7}
               >
                 <Text style={styles.changeNumberText}>Resend Code</Text>
               </TouchableOpacity>
@@ -224,10 +273,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: Math.max(24, width * 0.08),
     paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 40 : 60,
-    paddingBottom: Math.max(40, height * 0.06),
-    minHeight: height,
+    paddingBottom: Math.max(80, height * 0.1),
   },
   
   // Header Section
