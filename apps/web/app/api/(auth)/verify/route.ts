@@ -21,19 +21,19 @@ export const GET = async()=>{
             return NextResponse.json({message:"Invalid token",success:false})
         }
         if(data.data?.type=="admin"){
-            const admin = await Admin.findById({_id:data?.data?.id});
+            const admin = await (Admin as any).findById({_id:data?.data?.id});
             return NextResponse.json({message:"Admin fetched successfully",data:admin,success:true,type:"admin"})
         }
         else if(data.data?.type=="stateOfficer"){
-            const stateOfficer = await StateOfficer.findById({_id:data?.data?.id});
+            const stateOfficer = await (StateOfficer as any).findById({_id:data?.data?.id});
             return NextResponse.json({message:"State Officer fetched successfully",data:stateOfficer,success:true,type:"stateOfficer"})
         }
         else if(data.data?.type=="bank"){
-            const bank = await Bank.findById({_id:data?.data?.id});
+            const bank = await (Bank as any).findById({_id:data?.data?.id});
             return NextResponse.json({message:"Bank fetched successfully",data:bank,success:true,type:"bank"})
         }
         else if(data.data?.type=="user"){
-            const user = await User.findById({_id:data?.data?.id});
+            const user = await (User as any).findById({_id:data?.data?.id});
             return NextResponse.json({message:"User access verified",success:true,type:"user"})
         }
         return NextResponse.json({message:"Unauthorized access or no method allowed for this",success:false})
