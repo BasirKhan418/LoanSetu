@@ -16,7 +16,7 @@ export const GET = async (req: NextRequest) => {
         if(!data.success||data?.data?.type!="admin"){
             return NextResponse.json({message:"Unauthorized access",success:false})
         }
-        const admin = await Admin.findById({_id:data?.data?.id} as any);
+        const admin = await (Admin as any).findById({_id:data?.data?.id} as any);
         if(!admin){
             return NextResponse.json({message:"Admin not found incorrect details",success:false})
         }
