@@ -1,9 +1,23 @@
+import { LocationPopup } from '@/components/LocationPopup';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import React from 'react';
+import { useLocation } from '@/contexts/LocationContext';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
+  const { showLocationPopup, hasSetLocation } = useLocation();
+
+  // Show location popup on mount if location not set
+  useEffect(() => {
+    if (!hasSetLocation) {
+      // Small delay to allow screen to render
+      const timer = setTimeout(() => {
+        showLocationPopup();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSetLocation, showLocationPopup]);
   // Mock user data
   const user = {
     name: 'John Doe',
@@ -26,9 +40,11 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <ThemedView style={styles.header}>
+    <>
+      <LocationPopup />
+      <ScrollView style={styles.container}>
+        {/* Header */}
+        <ThemedView style={styles.header}>
         <Text style={styles.greeting}>Good Morning,</Text>
         <ThemedText type="title" style={styles.userName}>{user.name}</ThemedText>
         <Text style={styles.subtitle}>Welcome back to LoanSetu</Text>
@@ -91,6 +107,7 @@ export default function DashboardScreen() {
         <Text style={styles.bannerArrow}>›</Text>
       </TouchableOpacity>
     </ScrollView>
+    </>
   );
 }
 

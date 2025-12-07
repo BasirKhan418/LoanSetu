@@ -1,9 +1,14 @@
+// apps/mobileapp/app/loan-verification.tsx
+import { useDatabase } from '@/contexts/DatabaseContext';
+import { useLocation } from '@/contexts/LocationContext';
+import { beneficiaryService } from '@/services/beneficiaryService';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Camera, CheckCircle, ChevronLeft, FileText, Info, MapPin } from 'lucide-react-native';
+import { Camera, CheckCircle, ChevronLeft, FileText, Info, MapPin, Wifi, WifiOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -17,13 +22,24 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { submissionService } from '../services/submissionService';
 
 const { width } = Dimensions.get('window');
 const scale = width / 375;
 
+type PhotoAngle = 'front' | 'back' | 'left' | 'right';
+type CaptureType = PhotoAngle | 'invoice';
+
 interface Photo {
   id: string;
-  type: 'front' | 'back' | 'left' | 'right';
+  type: PhotoAngle;
+  uri: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+}
+
+interface InvoicePhoto {
   uri: string;
   latitude: number;
   longitude: number;
@@ -33,43 +49,46 @@ interface Photo {
 export default function LoanVerificationScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const { isOnline, isInitialized } = useDatabase();
+  const { hasSetLocation, showLocationPopup } = useLocation();
   
   const [productName, setProductName] = useState('');
   const [productDetails, setProductDetails] = useState('');
-  const [photos, setPhotos] = useState<Photo[]>([]);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [currentCaptureType, setCurrentCaptureType] = useState<'front' | 'back' | 'left' | 'right' | null>(null);
   const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; timestamp: string } | null>(null);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
-  const [invoicePhoto, setInvoicePhoto] = useState<Photo | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [currentCaptureType, setCurrentCaptureType] = useState<CaptureType | null>(null);
+  const [invoicePhoto, setInvoicePhoto] = useState<InvoicePhoto | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  
   
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
 
-  // Mock loan data - in real app, fetch based on params.loanId
   const loanData = {
     id: params.loanId || '1',
     schemeName: params.schemeName || 'Farm Mechanization Support Scheme',
     amount: params.amount || '₹2,50,000',
-    referenceId: '#SBI-AGRI-2023-8845',
+    referenceId: params.referenceId || '#SBI-AGRI-2023-8845',
   };
 
-  // Photo types for capturing product images
-  const photoTypes: ('front' | 'back' | 'left' | 'right')[] = ['front', 'back', 'left', 'right'];
+  const photoTypes: PhotoAngle[] = ['front', 'back', 'left', 'right'];
 
-  const handleCapturePhoto = async (type: 'front' | 'back' | 'left' | 'right') => {
+
+  const handleCapturePhoto = async (type: PhotoAngle) => {
     try {
-      // Request location permission first
       const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
       if (locationStatus !== 'granted') {
         Alert.alert('Permission Required', 'Location access is required to geo-tag photos for verification.');
         return;
       }
 
-      // Request camera permission
       if (!cameraPermission?.granted) {
         const { granted } = await requestCameraPermission();
         if (!granted) {
@@ -78,11 +97,9 @@ export default function LoanVerificationScreen() {
         }
       }
 
-      // Open camera and start location tracking
       setCurrentCaptureType(type);
       setIsCameraOpen(true);
       
-      // Start watching location for live display
       const locationInterval = setInterval(async () => {
         try {
           const location = await Location.getCurrentPositionAsync({});
@@ -96,7 +113,6 @@ export default function LoanVerificationScreen() {
         }
       }, 1000);
       
-      // Store interval ID for cleanup
       (global as any).locationInterval = locationInterval;
     } catch {
       Alert.alert('Error', 'Failed to access camera or location. Please check permissions.');
@@ -104,93 +120,100 @@ export default function LoanVerificationScreen() {
   };
 
   const takePicture = async () => {
-    if (cameraRef && currentCaptureType) {
-      try {
-        // Get current location
-        const location = await Location.getCurrentPositionAsync({});
-        
-        // Take photo
-        const photo = await cameraRef.takePictureAsync({
-          quality: 0.8,
-          base64: false,
-        });
+  if (!cameraRef || !currentCaptureType) return;
 
-        // Create photo object with geo-tagging
-        const newPhoto: Photo = {
-          id: Date.now().toString(),
-          type: currentCaptureType,
-          uri: photo.uri,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          timestamp: new Date().toISOString()
-        };
+  try {
+    setIsCapturing(true);
 
-        // Check if this is for invoice or product photo
-        const isInvoiceCapture = !photoTypes.includes(currentCaptureType as any);
-        
-        if (isInvoiceCapture) {
-          // Set invoice photo
-          setInvoicePhoto(newPhoto);
-        } else {
-          // Update product photos array
-          setPhotos(prev => [...prev.filter(p => p.type !== currentCaptureType), newPhoto]);
-        }
-        
-        // Show photo preview
-        setCapturedPhotoUri(photo.uri);
-        
-        // Clear location tracking
-        if ((global as any).locationInterval) {
-          clearInterval((global as any).locationInterval);
-          (global as any).locationInterval = null;
-        }
-      } catch {
-        Alert.alert('Error', 'Failed to capture photo. Please try again.');
-      }
+    // Get location fast: first try last known, then fallback
+    let location = await Location.getLastKnownPositionAsync();
+    if (!location) {
+      location = await Location.getCurrentPositionAsync({});
     }
-  };
+
+    const photo = await cameraRef.takePictureAsync({
+      quality: 0.8,
+      base64: false,
+      skipProcessing: true,
+    });
+
+    const baseData = {
+      uri: photo.uri,
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (currentCaptureType === 'invoice') {
+      // ✅ Invoice flow
+      setInvoicePhoto(baseData);
+    } else {
+      // ✅ 4-angle product photos
+      const newPhoto: Photo = {
+        id: Date.now().toString(),
+        type: currentCaptureType,
+        ...baseData,
+      };
+
+      setPhotos(prev => [
+        ...prev.filter(p => p.type !== currentCaptureType),
+        newPhoto,
+      ]);
+    }
+
+    setCapturedPhotoUri(photo.uri);
+
+    if ((global as any).locationInterval) {
+      clearInterval((global as any).locationInterval);
+      (global as any).locationInterval = null;
+    }
+  } catch (e) {
+    console.log(e);
+    Alert.alert('Error', 'Failed to capture photo. Please try again.');
+  } finally {
+    setIsCapturing(false);
+  }
+};
+
 
   const handleCaptureInvoice = async () => {
-    try {
-      // Request location permission
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      if (locationStatus !== 'granted') {
-        Alert.alert('Permission Required', 'Location access is required to geo-tag photos.');
+  try {
+    const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+    if (locationStatus !== 'granted') {
+      Alert.alert('Permission Required', 'Location access is required to geo-tag photos.');
+      return;
+    }
+
+    if (!cameraPermission?.granted) {
+      const { granted } = await requestCameraPermission();
+      if (!granted) {
+        Alert.alert('Permission Required', 'Camera access is required to capture invoice.');
         return;
       }
-
-      // Request camera permission
-      if (!cameraPermission?.granted) {
-        const { granted } = await requestCameraPermission();
-        if (!granted) {
-          Alert.alert('Permission Required', 'Camera access is required to capture invoice.');
-          return;
-        }
-      }
-
-      // Open camera for invoice
-      setCurrentCaptureType('front');
-      setIsCameraOpen(true);
-      
-      // Start location tracking
-      const locationInterval = setInterval(async () => {
-        try {
-          const location = await Location.getCurrentPositionAsync({});
-          setCurrentLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            timestamp: new Date().toLocaleString()
-          });
-        } catch (err) {
-          console.log('Location update error:', err);
-        }
-      }, 1000);
-      
-      (global as any).locationInterval = locationInterval;
-    } catch {
-      Alert.alert('Error', 'Failed to access camera or location.');
     }
-  };
+
+    setCurrentCaptureType('invoice');
+    setIsCameraOpen(true);
+
+    const locationInterval = setInterval(async () => {
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        setCurrentLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          timestamp: new Date().toLocaleString(),
+        });
+      } catch (err) {
+        console.log('Location update error:', err);
+      }
+    }, 1000);
+
+    (global as any).locationInterval = locationInterval;
+  } catch {
+    Alert.alert('Error', 'Failed to access camera or location.');
+  }
+};
+
 
   const handleConfirmPhoto = () => {
     setCapturedPhotoUri(null);
@@ -208,7 +231,7 @@ export default function LoanVerificationScreen() {
     setCapturedPhotoUri(null);
   };
 
-  const handleSubmitVerification = () => {
+  const handleSubmitVerification = async () => {
     if (!productName.trim()) {
       Alert.alert('Error', 'Please enter product name');
       return;
@@ -226,16 +249,107 @@ export default function LoanVerificationScreen() {
       return;
     }
 
+    // Check if user has set their home/business location
+    if (!hasSetLocation) {
+      Alert.alert(
+        'Location Required',
+        'Please set your home/business location before submitting verification. This helps us prevent fraud and verify your application.',
+        [
+          {
+            text: 'Set Location Now',
+            onPress: () => showLocationPopup(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
+    if (!isInitialized) {
+      Alert.alert('Error', 'Database not ready. Please try again.');
+      return;
+    }
+
+    const offlineMessage = !isOnline 
+      ? '\n\n📱 You are offline. Your submission will be saved locally and synced automatically when you\'re back online.' 
+      : '';
+
     Alert.alert(
       'Submit Verification',
-      'Submit product details for bank verification?',
+      `Submit product details for bank verification?${offlineMessage}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Submit',
-          onPress: () => {
-            router.back();
-            Alert.alert('Success', 'Verification submitted successfully! Bank will review your documents.');
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              // Get or create beneficiary (mock data - replace with actual user data)
+              const beneficiaryId = await beneficiaryService.saveBeneficiary({
+                name: 'Current User', // Get from auth context
+                mobileNumber: '1234567890', // Get from auth context
+                schemeName: typeof loanData.schemeName === 'string' ? loanData.schemeName : loanData.schemeName?.[0],
+              });
+
+              // Get current location for submission
+              const location = await Location.getCurrentPositionAsync({});
+
+              // Create submission with all data
+              const result = await submissionService.createSubmission({
+                beneficiaryId,
+                loanId: loanData.id as string,
+                loanReferenceId: typeof loanData.referenceId === 'string' ? loanData.referenceId : loanData.referenceId?.[0],
+                loanSchemeName: typeof loanData.schemeName === 'string' ? loanData.schemeName : loanData.schemeName?.[0],
+                loanAmount: typeof loanData.amount === 'string' ? loanData.amount : loanData.amount?.[0],
+                productName,
+                productDetails,
+                geoLat: location.coords.latitude,
+                geoLng: location.coords.longitude,
+                submittedBy: 'beneficiary',
+                photos: photos.map(p => ({
+                  type: p.type,
+                  uri: p.uri,
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                  timestamp: p.timestamp,
+                })),
+                invoicePhoto: {
+                  uri: invoicePhoto.uri,
+                  latitude: invoicePhoto.latitude,
+                  longitude: invoicePhoto.longitude,
+                  timestamp: invoicePhoto.timestamp,
+                },
+              });
+
+              console.log('Submission created:', result);
+
+              const successMessage = isOnline
+                ? 'Verification submitted successfully! Bank will review your documents.\n\nSubmission is being synced to the server.'
+                : 'Verification saved locally! It will be automatically synced when you\'re back online.\n\nYou can track the sync status in the Submissions tab.';
+
+              Alert.alert('Success', successMessage, [
+                {
+                  text: 'View Status',
+                  onPress: () => {
+                    router.replace('/submission-status');
+                  },
+                },
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    router.back();
+                  },
+                },
+              ]);
+            } catch (error) {
+              console.error('Submission error:', error);
+              Alert.alert('Error', 'Failed to save submission. Please try again.');
+            } finally {
+              setIsSubmitting(false);
+            }
           }
         }
       ]
@@ -254,13 +368,13 @@ export default function LoanVerificationScreen() {
   };
 
   const { hasProductInfo, hasAllPhotos, hasInvoice } = getCompletionStatus();
-  const canSubmit = hasProductInfo && hasAllPhotos && hasInvoice;
+  const canSubmit = hasProductInfo && hasAllPhotos && hasInvoice && !isSubmitting;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* Header */}
+      {/* Header with online/offline indicator */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity
@@ -272,12 +386,34 @@ export default function LoanVerificationScreen() {
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Loan Verification</Text>
-            <Text style={styles.headerSubtitle}>{loanData.referenceId}</Text>
+            <View style={styles.headerSubtitleRow}>
+              <Text style={styles.headerSubtitle}>{loanData.referenceId}</Text>
+              <View style={[styles.onlineIndicator, !isOnline && styles.offlineIndicator]}>
+                {isOnline ? (
+                  <Wifi size={12} color="#10b981" strokeWidth={2} />
+                ) : (
+                  <WifiOff size={12} color="#ef4444" strokeWidth={2} />
+                )}
+                <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* Loan Info Card */}
+      {/* Offline banner */}
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <WifiOff size={16} color="#ef4444" strokeWidth={2} />
+          <Text style={styles.offlineBannerText}>
+            You&apos;re offline. Submissions will be saved locally and synced automatically.
+          </Text>
+        </View>
+      )}
+
+      {/* Rest of the UI remains the same... */}
       <View style={styles.loanInfoCard}>
         <View style={styles.loanInfoHeader}>
           <Text style={styles.loanSchemeName}>{loanData.schemeName}</Text>
@@ -344,7 +480,6 @@ export default function LoanVerificationScreen() {
             </Text>
           </View>
 
-          {/* Photo Grid - Compact 2x2 Layout */}
           <View style={styles.photoGrid}>
             {photoTypes.map((type) => {
               const photo = getPhotoForType(type);
@@ -479,103 +614,113 @@ export default function LoanVerificationScreen() {
           activeOpacity={0.8}
           disabled={!canSubmit}
         >
-          <Text style={styles.submitButtonText}>
-            {canSubmit ? 'Submit for Verification' : 'Complete All Requirements'}
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {canSubmit ? 'Submit for Verification' : 'Complete All Requirements'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Camera Modal */}
-      {isCameraOpen && (
-        <View style={styles.cameraModal}>
-          <CameraView
-            style={styles.camera}
-            ref={(ref) => setCameraRef(ref)}
-            facing="back"
-          >
-            <View style={styles.cameraOverlay}>
-              {!capturedPhotoUri ? (
-                <>
-                  <View style={styles.cameraHeader}>
-                    <TouchableOpacity
-                      style={styles.cameraCloseButton}
-                      onPress={() => {
-                        setIsCameraOpen(false);
-                        setCurrentCaptureType(null);
-                        setCurrentLocation(null);
-                        if ((global as any).locationInterval) {
-                          clearInterval((global as any).locationInterval);
-                          (global as any).locationInterval = null;
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.5} />
-                    </TouchableOpacity>
-                    <Text style={styles.cameraTitle}>
-                      {currentCaptureType ? `${currentCaptureType.charAt(0).toUpperCase() + currentCaptureType.slice(1)} View` : 'Capture Photo'}
-                    </Text>
-                  </View>
-                  
-                  {/* Live GPS Info Display */}
-                  {currentLocation && (
-                    <View style={styles.gpsInfoContainer}>
-                      <View style={styles.gpsInfoBox}>
-                        <MapPin size={14} color="#FFFFFF" strokeWidth={2} />
-                        <Text style={styles.gpsInfoText}>
-                          {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-                        </Text>
-                      </View>
-                      <Text style={styles.gpsTimestamp}>{currentLocation.timestamp}</Text>
-                    </View>
-                  )}
-                  
-                  <View style={styles.cameraFooter}>
-                    <TouchableOpacity
-                      style={styles.captureButton}
-                      onPress={takePicture}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.captureButtonInner} />
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
-                  {/* Photo Preview */}
-                  <Image source={{ uri: capturedPhotoUri }} style={styles.previewImage} />
-                  <View style={styles.previewOverlay}>
-                    <View style={styles.previewHeader}>
-                      <Text style={styles.previewTitle}>Photo Preview</Text>
-                    </View>
-                    <View style={styles.previewFooter}>
-                      <TouchableOpacity
-                        style={styles.retakeButton}
-                        onPress={handleRetakePhoto}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.retakeButtonText}>Retake</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.confirmButton}
-                        onPress={handleConfirmPhoto}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.confirmButtonText}>Use Photo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          </CameraView>
+      {/* Camera Modal - Same as before */}
+{isCameraOpen && !capturedPhotoUri && (
+  <View style={styles.cameraModal}>
+    <CameraView
+      style={StyleSheet.absoluteFill}
+      ref={ref => setCameraRef(ref)}
+      facing="back"
+    />
+    {/* Overlay on top of camera */}
+    <View style={styles.cameraOverlay}>
+      <View style={styles.cameraHeader}>
+        <TouchableOpacity
+          style={styles.cameraCloseButton}
+          onPress={() => {
+            setIsCameraOpen(false);
+            setCurrentCaptureType(null);
+            setCurrentLocation(null);
+            if ((global as any).locationInterval) {
+              clearInterval((global as any).locationInterval);
+              (global as any).locationInterval = null;
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={28} color="#FFFFFF" strokeWidth={2.5} />
+        </TouchableOpacity>
+        <Text style={styles.cameraTitle}>
+          {currentCaptureType === 'invoice'
+            ? 'Invoice / Ownership Proof'
+            : currentCaptureType
+            ? `${currentCaptureType.charAt(0).toUpperCase()}${currentCaptureType.slice(1)} View`
+            : 'Capture Photo'}
+        </Text>
+      </View>
+
+      {currentLocation && (
+        <View style={styles.gpsInfoContainer}>
+          <View style={styles.gpsInfoBox}>
+            <MapPin size={14} color="#FFFFFF" strokeWidth={2} />
+            <Text style={styles.gpsInfoText}>
+              {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+            </Text>
+          </View>
+          <Text style={styles.gpsTimestamp}>{currentLocation.timestamp}</Text>
         </View>
       )}
+
+      <View style={styles.cameraFooter}>
+        <TouchableOpacity
+          style={[styles.captureButton, isCapturing && { opacity: 0.6 }]}
+          onPress={takePicture}
+          activeOpacity={0.8}
+          disabled={isCapturing}
+        >
+          <View style={styles.captureButtonInner} />
+        </TouchableOpacity>
+        {isCapturing && <Text style={styles.capturingText}>Capturing…</Text>}
+      </View>
+    </View>
+  </View>
+)}
+
+{/* Photo Preview */}
+{isCameraOpen && capturedPhotoUri && (
+  <View style={styles.cameraModal}>
+    <Image source={{ uri: capturedPhotoUri }} style={styles.previewImage} />
+    <View style={styles.previewOverlay}>
+      <View style={styles.previewHeader}>
+        <Text style={styles.previewTitle}>Photo Preview</Text>
+      </View>
+      <View style={styles.previewFooter}>
+        <TouchableOpacity
+          style={styles.retakeButton}
+          onPress={handleRetakePhoto}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.retakeButtonText}>Retake</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.confirmButton}
+          onPress={handleConfirmPhoto}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.confirmButtonText}>Use Photo</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+)}
+
     </View>
   );
 }
 
+// Styles - Add new styles for online/offline indicators
 const styles = StyleSheet.create({
+  // ... (keep all existing styles)
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -610,10 +755,53 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginBottom: 2,
   },
+  headerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   headerSubtitle: {
     fontSize: Math.max(13, scale * 14),
     color: '#6B7280',
   },
+  onlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
+  },
+  offlineIndicator: {
+    backgroundColor: '#FEE2E2',
+  },
+  onlineText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  offlineText: {
+    color: '#ef4444',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEE2E2',
+  },
+  offlineBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#991b1b',
+    lineHeight: 18,
+  },
+  // ... (include all other existing styles from the original component)
+  // I'll include a few key ones for reference:
   loanInfoCard: {
     backgroundColor: '#FAFAFA',
     marginHorizontal: 16,
@@ -630,6 +818,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  capturingText: {
+  marginTop: 8,
+  color: '#FFFFFF',
+  fontSize: Math.max(12, scale * 13),
+},
   loanSchemeName: {
     flex: 1,
     fontSize: Math.max(15, scale * 16),
@@ -702,6 +895,8 @@ const styles = StyleSheet.create({
     height: 100,
     paddingTop: 12,
   },
+  // Add these remaining styles to the StyleSheet in loan-verification.tsx
+
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -849,10 +1044,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cameraOverlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'space-between',
-  },
+  ...StyleSheet.absoluteFillObject,
+  justifyContent: 'space-between',
+},
   cameraHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1029,5 +1223,5 @@ const styles = StyleSheet.create({
     fontSize: Math.max(13, scale * 14),
     fontWeight: '600',
     color: '#FC8019',
-  },
+  }
 });

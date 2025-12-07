@@ -42,7 +42,6 @@ export default function LoginScreen() {
     });
 
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      // Don't auto scroll to top on keyboard hide - let user control scroll
     });
 
     return () => {

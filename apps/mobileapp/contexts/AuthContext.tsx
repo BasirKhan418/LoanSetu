@@ -7,6 +7,12 @@ interface User {
   name: string;
   isActive: boolean;
   languageCode?: string; // User's preferred language
+  homeLocation?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    timestamp: string;
+  }; // User's home/business location
 }
 
 interface AuthContextType {
