@@ -11,6 +11,7 @@ const StateAdminSchema = new mongoose.Schema({
   // role flags
   isActive: { type: Boolean, default: true },
   isVerified: { type: Boolean, default: false }, // after onboarding / approval
+  isSuperAdmin:{type:Boolean,default:false}
 }, { timestamps: true });
 
 export default mongoose.models?.Admin || mongoose.model("Admin", StateAdminSchema);

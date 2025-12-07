@@ -46,3 +46,29 @@ export const POST = async(req:NextRequest)=>{
         return NextResponse.json({message:"something went wrong please try again after some time",success:false})
     }
 }
+
+export const PUT = async(req:NextRequest)=>{
+    try{
+        const data =  await req.json();
+        await ConnectDb();
+        const cookiesStore = await cookies();
+        const token = cookiesStore.get("token")?.value;
+        const val = verifyAdminToken(token||"");
+        if(!val.success||val.data?.type!="admin"){
+            return NextResponse.json({message:"Unauthorized access",success:false})
+        }
+        const admin = await (Admin as any).findById(data.id as string);
+        if(!admin){
+            return NextResponse.json({message:"Admin not found",success:false})
+        }
+        await Admin.findByIdAndUpdate(
+            data.id,
+            { $set: data },
+            { new: true, includeResultMetadata: true, lean: true }
+        );
+        return NextResponse.json({message:"Admin updated successfully",success:true});
+    }
+    catch(err){
+        return NextResponse.json({message:"somethi"})
+    }
+}
