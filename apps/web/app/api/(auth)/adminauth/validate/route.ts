@@ -10,7 +10,8 @@ export const POST = async(req:NextRequest)=>{
         if(storedOtp!==data.otp){
             return NextResponse.json({message:"Invalid or expired OTP",success:false})
         }
-        const admin = await Admin.findOne({email:data.email});
+        const admin = await Admin.findOne({email:data.email} as any);
+        await Admin.updateOne({email:data.email} as any, {isVerified:true});
         if(!admin){
             return NextResponse.json({message:"Admin not found",success:false})
         }
