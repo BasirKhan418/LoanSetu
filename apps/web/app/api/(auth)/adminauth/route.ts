@@ -18,7 +18,7 @@ export const POST = async(req:NextRequest)=>{
         if(val.data?.type!="admin"){
             return NextResponse.json({message:"Unauthorized access",success:false})
         }
-        const findAdmin = await Admin.findOne({email:data.email});
+        const findAdmin = await Admin.findOne({email:data.email}as any);
         if(findAdmin){
             return NextResponse.json({message:"Admin with this email already exists",success:false})
         }
@@ -27,7 +27,7 @@ export const POST = async(req:NextRequest)=>{
         return NextResponse.json({message:"Admin created successfully",data:newAdmin,success:true});
         }
         else{
-            const findAdmin = await Admin.findOne({email:data.email});
+            const findAdmin = await Admin.findOne({email:data.email}as any);
             if(!findAdmin){
                 return NextResponse.json({message:"Admin not found",success:false})
             }
