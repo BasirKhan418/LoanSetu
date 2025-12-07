@@ -24,12 +24,13 @@ export const GET = async()=>{
             const admin = await (Admin as any).findById({_id:data?.data?.id});
             return NextResponse.json({message:"Admin fetched successfully",data:admin,success:true,type:"admin"})
         }
-        else if(data.data?.type=="stateOfficer"){
+        else if(data.data?.type=="stateofficer"){
             const stateOfficer = await (StateOfficer as any).findById({_id:data?.data?.id});
-            return NextResponse.json({message:"State Officer fetched successfully",data:stateOfficer,success:true,type:"stateOfficer"})
+            return NextResponse.json({message:"State Officer fetched successfully",data:stateOfficer,success:true,type:"stateofficer"})
         }
         else if(data.data?.type=="bank"){
-            const bank = await (Bank as any).findById({_id:data?.data?.id});
+            // For bank, the token contains ifsc instead of id
+            const bank = await (Bank as any).findOne({ifsc: data?.data?.ifsc});
             return NextResponse.json({message:"Bank fetched successfully",data:bank,success:true,type:"bank"})
         }
         else if(data.data?.type=="user"){

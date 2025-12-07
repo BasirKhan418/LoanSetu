@@ -47,7 +47,9 @@ export default function NavbarDemo() {
           <NavItems items={navItems} />
           <div className="flex items-center gap-4">
             <NavbarButton variant="secondary">Request Demo</NavbarButton>
-            <NavbarButton variant="primary">Sign In</NavbarButton>
+            <NavbarButton variant="primary" onClick={() => window.location.href = '/auth/signin'}>
+              Sign In
+            </NavbarButton>
           </div>
         </NavBody>
 
@@ -78,13 +80,16 @@ export default function NavbarDemo() {
             <div className="flex w-full flex-col gap-4">
               <NavbarButton
                 onClick={() => setIsMobileMenuOpen(false)}
-                variant="primary"
+                variant="secondary"
                 className="w-full"
               >
                 Request Demo
               </NavbarButton>
               <NavbarButton
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  window.location.href = '/auth/signin';
+                }}
                 variant="primary"
                 className="w-full"
               >

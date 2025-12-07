@@ -5,10 +5,10 @@ import { Input } from "../../../components/ui/input";
 import { cn } from "../../../lib/utils";
 import Image from "next/image";
 import Navbar from "../../../components/navbar";
-import { Smartphone, Wifi, CheckCircle2, Loader2, Mail, Shield, ArrowLeft } from "lucide-react";
+import { Smartphone, Wifi, CheckCircle2, Loader2, Mail, Shield, ArrowLeft, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function StateAdminSignIn() {
+export default function StateOfficerSignIn() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [showOtpField, setShowOtpField] = useState(false);
@@ -88,7 +88,7 @@ export default function StateAdminSignIn() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/adminauth", {
+      const response = await fetch("/api/stateofficerauth", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -105,7 +105,7 @@ export default function StateAdminSignIn() {
         setShowOtpField(true);
         setSuccess("OTP sent successfully! Please check your email.");
         setError("");
-        setResendTimer(60); // Start 60-second countdown
+        setResendTimer(60);
       } else {
         setError(data.message || "Failed to send OTP. Please try again.");
       }
@@ -143,7 +143,7 @@ export default function StateAdminSignIn() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/adminauth/validate", {
+      const response = await fetch("/api/stateofficerauth/validate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -158,13 +158,12 @@ export default function StateAdminSignIn() {
 
       if (data.success) {
         if (data.token) {
-          document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+          document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
         }
         
         setSuccess("Login successful! Verifying credentials...");
         setError("");
         
-        // Verify the token using the verify endpoint
         try {
           const verifyResponse = await fetch("/api/verify", {
             method: "GET",
@@ -173,9 +172,21 @@ export default function StateAdminSignIn() {
           
           const verifyData = await verifyResponse.json();
           
-          if (verifyData.success && verifyData.type === "admin") {
+          if (verifyData.success && verifyData.type === "stateofficer") {
+            if (!verifyData.data.isVerified) {
+              setError("Your account is not verified. Please contact your administrator.");
+              setLoading(false);
+              return;
+            }
+            
+            if (!verifyData.data.isActive) {
+              setError("Your account is inactive. Please contact your administrator.");
+              setLoading(false);
+              return;
+            }
+            
             setTimeout(() => {
-              router.push("/admin/dashboard");
+              router.push("/stateofficer/dashboard");
             }, 500);
           } else {
             setError("Authentication verification failed. Please try again.");
@@ -210,7 +221,7 @@ export default function StateAdminSignIn() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50/30">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       <Navbar />
       
       <section className="px-4 mt-5 py-4 sm:px-6 lg:px-8 lg:py-6">
@@ -242,16 +253,16 @@ export default function StateAdminSignIn() {
                     </button>
                   )}
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 border border-orange-200">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
                       {showOtpField ? (
-                        <Shield className="h-5 w-5 text-orange-600" />
+                        <Shield className="h-5 w-5 text-blue-600" />
                       ) : (
-                        <Mail className="h-5 w-5 text-orange-600" />
+                        <Mail className="h-5 w-5 text-blue-600" />
                       )}
                     </div>
                     <div>
                       <h2 className="text-xl font-bold text-neutral-800">
-                        {showOtpField ? "Verify OTP" : "Admin Sign In"}
+                        {showOtpField ? "Verify OTP" : "State Officer Sign In"}
                       </h2>
                       <p className="text-xs text-neutral-600">
                         {showOtpField 
@@ -263,7 +274,6 @@ export default function StateAdminSignIn() {
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                  {/* Error Message */}
                   {error && (
                     <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
                       <span className="text-red-500 font-bold">✕</span>
@@ -271,7 +281,6 @@ export default function StateAdminSignIn() {
                     </div>
                   )}
 
-                  {/* Success Message */}
                   {success && (
                     <div className="mb-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700 flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
@@ -287,7 +296,7 @@ export default function StateAdminSignIn() {
                         </Label>
                         <Input
                           id="email"
-                          placeholder="admin@example.com"
+                          placeholder="officer@example.com"
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -300,7 +309,7 @@ export default function StateAdminSignIn() {
 
                       <button
                         onClick={handleSendOtp}
-                        className="mb-4 h-11 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+                        className="mb-4 h-11 w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                         type="button"
                         disabled={loading}
                       >
@@ -347,7 +356,7 @@ export default function StateAdminSignIn() {
                       </div>
 
                       <button
-                        className="mb-3 h-11 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+                        className="mb-3 h-11 w-full rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                         type="submit"
                         disabled={loading || !validateOtp(otp)}
                       >
@@ -383,7 +392,7 @@ export default function StateAdminSignIn() {
                     Having trouble?{" "}
                     <a
                       href="#support"
-                      className="font-medium text-orange-600 hover:text-orange-700"
+                      className="font-medium text-blue-600 hover:text-blue-700"
                     >
                       Contact support
                     </a>
@@ -392,52 +401,44 @@ export default function StateAdminSignIn() {
 
                 <div className="mt-4 border-t border-neutral-200 pt-4">
                   <p className="text-center text-xs text-neutral-500">
-                    For authorized beneficiaries and officers only
+                    For verified state officers only
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Left column (mobile second) - Content + Visual */}
             <div className="order-2 lg:order-1 space-y-4">
-              {/* Pill tag */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700 border border-orange-200">
-                <CheckCircle2 className="h-3 w-3" />
-                LoanSetu · GovTech Verified
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-200">
+                <UserCircle className="h-3 w-3" />
+                State Officer Portal
               </div>
 
-              {/* Heading */}
               <h1 className="text-2xl font-bold text-neutral-900 lg:text-3xl">
-                Sign in to verify loan assets securely.
+                Review and approve loan submissions securely.
               </h1>
 
-              {/* Description */}
               <div className="space-y-2 text-neutral-700">
                 <p className="text-sm leading-relaxed">
-                  LoanSetu helps State Agencies and Banks verify loan utilization with geo-tagged, time-stamped evidence validated by AI.
+                  Access the state officer dashboard to review loan applications, verify submitted evidence, and approve or reject submissions.
                 </p>
                 <p className="text-xs leading-relaxed text-neutral-600">
-                  Eliminate costly field visits and reduce fraud with instant digital verification.
+                  Streamlined workflow with geo-tagged verification and AI-powered validation.
                 </p>
               </div>
 
-              {/* Mini feature chips */}
               <div className="flex flex-wrap gap-2">
-                <FeatureChip icon={<Smartphone className="h-3.5 w-3.5" />} text="Secure email OTP login" />
-                <FeatureChip icon={<Wifi className="h-3.5 w-3.5" />} text="Offline capture, later sync" />
-                <FeatureChip icon={<CheckCircle2 className="h-3.5 w-3.5" />} text="Remote officer approval" />
+                <FeatureChip icon={<Shield className="h-3.5 w-3.5" />} text="Secure OTP login" />
+                <FeatureChip icon={<CheckCircle2 className="h-3.5 w-3.5" />} text="Quick approval workflow" />
+                <FeatureChip icon={<Smartphone className="h-3.5 w-3.5" />} text="Mobile-friendly interface" />
               </div>
 
-              {/* Abstract illustration area - smaller */}
-              <div className="relative rounded-2xl bg-gradient-to-br from-orange-100/50 via-white to-orange-50 p-6 border border-orange-100/50">
+              <div className="relative rounded-2xl bg-gradient-to-br from-blue-100/50 via-white to-blue-50 p-6 border border-blue-100/50">
                 <div className="relative mx-auto max-w-[200px]">
-                  {/* Phone mockup frame */}
                   <div className="relative aspect-[9/19] rounded-2xl border-[3px] border-neutral-200 bg-white shadow-lg overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-white p-3">
-                      {/* Simulated phone content */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-white p-3">
                       <div className="space-y-2">
-                        <div className="h-6 rounded-lg bg-orange-200/50 w-3/4" />
-                        <div className="h-16 rounded-lg bg-orange-100/50" />
+                        <div className="h-6 rounded-lg bg-blue-200/50 w-3/4" />
+                        <div className="h-16 rounded-lg bg-blue-100/50" />
                         <div className="space-y-1.5">
                           <div className="h-3 rounded bg-neutral-200/50 w-full" />
                           <div className="h-3 rounded bg-neutral-200/50 w-5/6" />
@@ -446,9 +447,8 @@ export default function StateAdminSignIn() {
                     </div>
                   </div>
                   
-                  {/* Decorative circles */}
-                  <div className="absolute -top-3 -right-3 h-16 w-16 rounded-full bg-orange-200/30 blur-xl" />
-                  <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-orange-300/20 blur-xl" />
+                  <div className="absolute -top-3 -right-3 h-16 w-16 rounded-full bg-blue-200/30 blur-xl" />
+                  <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-blue-300/20 blur-xl" />
                 </div>
               </div>
             </div>
@@ -462,7 +462,7 @@ export default function StateAdminSignIn() {
 const FeatureChip = ({ icon, text }: { icon: React.ReactNode; text: string }) => {
   return (
     <div className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 shadow-sm border border-neutral-200">
-      <span className="text-orange-600">{icon}</span>
+      <span className="text-blue-600">{icon}</span>
       {text}
     </div>
   );
