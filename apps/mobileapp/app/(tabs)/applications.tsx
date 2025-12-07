@@ -1,124 +1,281 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { ChevronRight, FileText, Search, X } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
+const scale = width / 375;
+
+interface Loan {
+  id: number;
+  referenceId: string;
+  schemeName: string;
+  amount: string;
+  appliedDate: string;
+  verificationStatus: 'pending' | 'submitted' | 'verified';
+}
 
 export default function ApplicationsScreen() {
-  const applications = [
-    { id: 1, type: 'Personal Loan', amount: '₹2,00,000', status: 'Under Review', date: '2024-11-20' },
-    { id: 2, type: 'Home Loan', amount: '₹50,00,000', status: 'Approved', date: '2024-11-15' },
-    { id: 3, type: 'Car Loan', amount: '₹8,00,000', status: 'Pending', date: '2024-11-18' },
+  const insets = useSafeAreaInsets();
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const tabBarHeight = Platform.OS === 'ios' 
+    ? Math.max(80, 50 + insets.bottom) 
+    : Math.max(70, 60 + insets.bottom);
+
+  const approvedLoans: Loan[] = [
+    {
+      id: 1,
+      referenceId: '#SBI-AGRI-2023-8845',
+      schemeName: 'Farm Mechanization Support Scheme',
+      amount: '₹2,50,000',
+      appliedDate: '15 Oct 2023',
+      verificationStatus: 'pending'
+    },
+    {
+      id: 2,
+      referenceId: '#PNB-CROP-2023-7721',
+      schemeName: 'Crop Insurance Scheme',
+      amount: '₹1,80,000',
+      appliedDate: '12 Nov 2023',
+      verificationStatus: 'submitted'
+    },
+    {
+      id: 3,
+      referenceId: '#HDFC-KCC-2023-9934',
+      schemeName: 'Kisan Credit Card',
+      amount: '₹5,00,000',
+      appliedDate: '5 Dec 2023',
+      verificationStatus: 'verified'
+    },
+    {
+      id: 4,
+      referenceId: '#AXIS-AGR-2023-6612',
+      schemeName: 'Agricultural Equipment Loan',
+      amount: '₹3,20,000',
+      appliedDate: '20 Dec 2023',
+      verificationStatus: 'pending'
+    }
   ];
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Approved': return '#28a745';
-      case 'Under Review': return '#ffc107';
-      case 'Pending': return '#17a2b8';
-      default: return '#6c757d';
-    }
+  const filteredLoans = approvedLoans.filter(loan =>
+    loan.schemeName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleLoanPress = (loan: Loan) => {
+    router.push({
+      pathname: '/loan-verification',
+      params: {
+        loanId: loan.id.toString(),
+        schemeName: loan.schemeName,
+        amount: loan.amount,
+        referenceId: loan.referenceId,
+      }
+    });
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>My Applications</ThemedText>
-        <ThemedText style={styles.subtitle}>Track your loan applications</ThemedText>
-      </ThemedView>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      {/* Simple Header with just space for status bar */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>My Approved Loans</Text>
+            <Text style={styles.headerSubtitle}>{filteredLoans.length} loans available</Text>
+          </View>
+        </View>
 
-      <View style={styles.applicationsList}>
-        {applications.map((app) => (
-          <TouchableOpacity key={app.id} style={styles.applicationCard}>
-            <View style={styles.cardHeader}>
-              <ThemedText type="subtitle" style={styles.loanType}>{app.type}</ThemedText>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(app.status) }]}>
-                <Text style={styles.statusText}>{app.status}</Text>
-              </View>
-            </View>
-            <ThemedText style={styles.amount}>{app.amount}</ThemedText>
-            <ThemedText style={styles.date}>Applied on: {app.date}</ThemedText>
-          </TouchableOpacity>
-        ))}
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#9CA3AF" strokeWidth={2} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by loan name..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={20} color="#9CA3AF" strokeWidth={2} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <TouchableOpacity style={styles.newApplicationButton}>
-        <Text style={styles.newApplicationText}>+ New Application</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      {/* Loans List */}
+      <ScrollView 
+        style={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+      >
+        <View style={styles.loansContainer}>
+          {filteredLoans.map((loan) => (
+            <TouchableOpacity
+              key={loan.id}
+              style={styles.loanCard}
+              activeOpacity={0.7}
+              onPress={() => handleLoanPress(loan)}
+            >
+              <View style={styles.loanCardContent}>
+                <View style={styles.loanIcon}>
+                  <FileText size={24} color="#FC8019" strokeWidth={2} />
+                </View>
+                <View style={styles.loanInfo}>
+                  <Text style={styles.loanName}>{loan.schemeName}</Text>
+                  <Text style={styles.loanAmount}>{loan.amount}</Text>
+                  <Text style={styles.loanDate}>{loan.referenceId} • {loan.appliedDate}</Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
+            </TouchableOpacity>
+          ))}
+
+          {filteredLoans.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No loans found</Text>
+              <Text style={styles.emptyStateSubtext}>Try adjusting your search</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    padding: 24,
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  title: {
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: '#ffffff',
-    opacity: 0.8,
-    fontSize: 16,
-  },
-  applicationsList: {
-    padding: 16,
-  },
-  applicationCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardHeader: {
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    marginTop: 10,
   },
-  loanType: {
+  headerLeft: {
     flex: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  amount: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: Math.max(24, scale * 26),
     fontWeight: 'bold',
-    color: '#1a73e8',
+    color: '#1F2937',
     marginBottom: 4,
   },
-  date: {
-    fontSize: 14,
-    color: '#666',
+  headerSubtitle: {
+    fontSize: Math.max(13, scale * 14),
+    color: '#6B7280',
   },
-  newApplicationButton: {
-    margin: 16,
-    backgroundColor: '#1a73e8',
-    borderRadius: 12,
-    padding: 16,
+  searchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  newApplicationText: {
-    color: '#ffffff',
-    fontSize: 18,
+  searchInput: {
+    flex: 1,
+    fontSize: Math.max(15, scale * 16),
+    color: '#1F2937',
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  loansContainer: {
+    padding: 16,
+  },
+  loanCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  loanCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  loanIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#FF8C42',
+  },
+  loanInfo: {
+    flex: 1,
+  },
+  loanName: {
+    fontSize: Math.max(15, scale * 16),
     fontWeight: '600',
+    color: '#1F2937',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  loanAmount: {
+    fontSize: Math.max(18, scale * 20),
+    fontWeight: 'bold',
+    color: '#FC8019',
+    marginBottom: 2,
+  },
+  loanDate: {
+    fontSize: Math.max(11, scale * 12),
+    color: '#9CA3AF',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: Math.max(16, scale * 18),
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: Math.max(14, scale * 15),
+    color: '#9CA3AF',
   },
 });

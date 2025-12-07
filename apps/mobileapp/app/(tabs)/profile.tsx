@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Bell } from 'lucide-react-native';
+import { Bell, Cloud, Globe } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -21,8 +21,6 @@ import { getTranslation } from '../../utils/translations';
 
 const { width, height } = Dimensions.get('window');
 const scale = width / 375;
-
-// Define types for loan data
 interface StatusStep {
   step: string;
   status: 'completed' | 'active' | 'pending';
@@ -46,21 +44,15 @@ export default function ProfileScreen() {
   const [showLoanStatus, setShowLoanStatus] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const insets = useSafeAreaInsets();
-
-  // Calculate tab bar height (same as in _layout.tsx)
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
-  
-  // Mock user data for testing
   const user = {
     name: 'Swagat Kumar Dash',
     mobile: '+91 9556376455',
     userId: 'USER123456',
     joinDate: 'Jan 2024'
   };
-
-  // Mock multiple loans data with detailed status flow
   const mockLoans = [
     {
       id: 1,
@@ -149,12 +141,7 @@ export default function ProfileScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
       
       {/* Creative Header with User Profile */}
-      <LinearGradient
-        colors={['#FF8C42', '#FFB366', '#FFEDE0']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.creativeHeader}
-      >
+      <View style={[styles.creativeHeader, { backgroundColor: '#FC8019' }]}>
         <View style={styles.headerContent}>
           <View style={styles.profileCard}>
             <View style={styles.profileIconContainer}>
@@ -173,7 +160,7 @@ export default function ProfileScreen() {
             <View style={styles.decorativeCircle2} />
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView 
         style={styles.scrollContent} 
@@ -218,7 +205,7 @@ export default function ProfileScreen() {
         <View style={styles.syncCard}>
           <View style={styles.syncCardContent}>
             <View style={styles.syncIcon}>
-              <Text style={styles.syncIconText}>☁️</Text>
+              <Cloud size={Math.max(20, scale * 22)} color="#FF8C42" strokeWidth={2} />
             </View>
             <View style={styles.syncTextContainer}>
               <Text style={styles.syncTitle}>{getTranslation('syncData', currentLanguage.code)}</Text>
@@ -235,7 +222,9 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.menuIconContainer}>
-              <Text style={styles.menuOptionIcon}>🌐</Text>
+              <Text style={styles.menuOptionIcon}>
+                <Globe size={Math.max(20, scale * 22)} color="#FF8C42" strokeWidth={2} />
+              </Text>
             </View>
             <Text style={styles.menuOptionText}>{getTranslation('languageSettings', currentLanguage.code)}</Text>
             <Text style={styles.menuArrow}>›</Text>
@@ -412,7 +401,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF8F5',
   },
-  // Creative Header Styles
   creativeHeader: {
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 50,
     paddingBottom: Math.max(30, height * 0.04),
@@ -437,10 +425,12 @@ const styles = StyleSheet.create({
     width: Math.max(60, scale * 70),
     height: Math.max(60, scale * 70),
     borderRadius: Math.max(30, scale * 35),
-    backgroundColor: '#FFE4D6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Math.max(16, scale * 20),
+    borderWidth: 1,
+    borderColor: '#FF8C42',
   },
   profileIcon: {
     fontSize: Math.max(28, scale * 32),
@@ -505,9 +495,11 @@ const styles = StyleSheet.create({
     width: Math.max(32, scale * 36),
     height: Math.max(32, scale * 36),
     borderRadius: Math.max(16, scale * 18),
-    backgroundColor: '#FFE4D6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF8C42',
   },
   syncIconText: {
     fontSize: Math.max(20, scale * 22),
@@ -532,10 +524,12 @@ const styles = StyleSheet.create({
     width: Math.max(30, scale * 34),
     height: Math.max(30, scale * 34),
     borderRadius: Math.max(15, scale * 17),
-    backgroundColor: '#FFE4D6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Math.max(10, scale * 12),
+    borderWidth: 1,
+    borderColor: '#FF8C42',
   },
   menuOptionIcon: {
     fontSize: Math.max(20, scale * 22),
@@ -552,11 +546,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomSpacer: {
-    // Dynamic height is set inline based on tab bar height
     minHeight: 40,
   },
-  
-  // Section Styles
   sectionContainer: {
     marginBottom: Math.max(16, height * 0.02),
   },
@@ -637,8 +628,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontStyle: 'italic',
   },
-  
-  // Compact Sync Card
   syncCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: Math.max(10, scale * 12),
@@ -671,13 +660,9 @@ const styles = StyleSheet.create({
     color: '#666666',
     lineHeight: Math.max(16, scale * 18),
   },
-  
-  // Menu Section
   menuSection: {
     marginBottom: Math.max(16, height * 0.02),
   },
-  
-  // Logout Section
   logoutSection: {
     alignItems: 'center',
     marginTop: Math.max(8, height * 0.01),

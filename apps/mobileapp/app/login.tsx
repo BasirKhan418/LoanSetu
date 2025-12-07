@@ -62,7 +62,6 @@ export default function LoginScreen() {
     try {
       // Accept any mobile number for testing
       await new Promise(resolve => setTimeout(resolve, 1000));
-      Alert.alert('Success', 'OTP sent successfully!');
       setStep('otp');
       
       setTimeout(() => {
