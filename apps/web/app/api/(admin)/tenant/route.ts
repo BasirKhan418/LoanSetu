@@ -8,8 +8,7 @@ export const GET = async(req:NextRequest)=>{
         const id = searchParams.get('id');
         
         if (id) {
-            // Fetch single tenant by ID
-            const tenant = await Tenant.findById(id);
+            const tenant = await (Tenant as any).findById(String(id));
             if (!tenant) {
                 return NextResponse.json({message:"Tenant not found",success:false})
             }
