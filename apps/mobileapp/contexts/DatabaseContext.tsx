@@ -1,9 +1,9 @@
 // apps/mobileapp/contexts/DatabaseContext.tsx
+import NetInfo from '@react-native-community/netinfo';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import * as Network from 'expo-network';
 import { database } from '../database/schema';
-import { syncService, SyncResult } from '../services/syncservice';
+import { SyncResult, syncService } from '../services/syncservice';
 
 interface DatabaseContextType {
   isInitialized: boolean;
@@ -40,24 +40,43 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Monitor network connectivity
+  // Monitor network connectivity with instant updates using NetInfo
   useEffect(() => {
-    const checkConnectivity = async () => {
-      try {
-        const networkState = await Network.getNetworkStateAsync();
-        setIsOnline((networkState.isConnected ?? false) && (networkState.isInternetReachable ?? false));
-      } catch (error) {
-        console.error('Network check error:', error);
-        setIsOnline(false);
-      }
+    // Subscribe to network state changes (instant updates via native broadcast receiver)
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const isConnected = state.isConnected ?? false;
+      const isInternetReachable = state.isInternetReachable ?? false;
+      const online = isConnected && isInternetReachable;
+      
+      console.log('Network status changed:', {
+        isConnected,
+        isInternetReachable,
+        online,
+        type: state.type,
+      });
+      
+      setIsOnline(online);
+    });
+
+    // Get initial network state
+    NetInfo.fetch().then(state => {
+      const isConnected = state.isConnected ?? false;
+      const isInternetReachable = state.isInternetReachable ?? false;
+      const online = isConnected && isInternetReachable;
+      
+      console.log('Initial network status:', {
+        isConnected,
+        isInternetReachable,
+        online,
+        type: state.type,
+      });
+      
+      setIsOnline(online);
+    });
+
+    return () => {
+      unsubscribe();
     };
-
-    checkConnectivity();
-
-    // Check every 30 seconds
-    const interval = setInterval(checkConnectivity, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   // Start sync on initialization

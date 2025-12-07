@@ -1,5 +1,6 @@
 // apps/mobileapp/app/loan-verification.tsx
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useLocation } from '@/contexts/LocationContext';
 import { beneficiaryService } from '@/services/beneficiaryService';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -49,6 +50,7 @@ export default function LoanVerificationScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { isOnline, isInitialized } = useDatabase();
+  const { hasSetLocation, showLocationPopup } = useLocation();
   
   const [productName, setProductName] = useState('');
   const [productDetails, setProductDetails] = useState('');
@@ -247,6 +249,25 @@ export default function LoanVerificationScreen() {
       return;
     }
 
+    // Check if user has set their home/business location
+    if (!hasSetLocation) {
+      Alert.alert(
+        'Location Required',
+        'Please set your home/business location before submitting verification. This helps us prevent fraud and verify your application.',
+        [
+          {
+            text: 'Set Location Now',
+            onPress: () => showLocationPopup(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
     if (!isInitialized) {
       Alert.alert('Error', 'Database not ready. Please try again.');
       return;
@@ -313,7 +334,7 @@ export default function LoanVerificationScreen() {
                 {
                   text: 'View Status',
                   onPress: () => {
-                    router.replace('/(tabs)/applications');
+                    router.replace('/submission-status');
                   },
                 },
                 {

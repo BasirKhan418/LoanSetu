@@ -1,6 +1,6 @@
 // apps/mobileapp/services/syncService.ts
+import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system';
-import * as Network from 'expo-network';
 import { submissionService } from './submissionService';
 
 export type NetworkQuality = 'excellent' | 'good' | 'poor' | 'offline';
@@ -28,7 +28,7 @@ export class SyncService {
    */
   async checkNetworkQuality(): Promise<NetworkQuality> {
     try {
-      const networkState = await Network.getNetworkStateAsync();
+      const networkState = await NetInfo.fetch();
       
       if (!networkState.isConnected || !networkState.isInternetReachable) {
         return 'offline';
@@ -37,13 +37,13 @@ export class SyncService {
       const type = networkState.type;
       
       // Determine quality based on connection type
-      if (type === Network.NetworkStateType.WIFI) {
+      if (type === 'wifi') {
         return 'excellent';
-      } else if (type === Network.NetworkStateType.CELLULAR) {
+      } else if (type === 'cellular') {
         // For cellular, we assume good quality
         // In production, you might want to check signal strength
         return 'good';
-      } else if (type === Network.NetworkStateType.ETHERNET) {
+      } else if (type === 'ethernet') {
         return 'excellent';
       }
 
