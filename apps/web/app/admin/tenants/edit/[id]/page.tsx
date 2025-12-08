@@ -99,7 +99,7 @@ export default function EditTenantPage() {
 
   const fetchTenantData = async () => {
     try {
-      const response = await fetch(`/api/tenant?id=${tenantId}`, {
+      const response = await fetch(`/api/admin/tenant?id=${tenantId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -155,7 +155,7 @@ export default function EditTenantPage() {
     setSuccess(false);
 
     try {
-      const response = await fetch("/api/tenant", {
+      const response = await fetch("/api/admin/tenant", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

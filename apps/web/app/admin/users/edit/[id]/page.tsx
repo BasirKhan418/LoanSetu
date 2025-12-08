@@ -170,7 +170,7 @@ export default function EditUserPage() {
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch("/api/tenant", {
+      const response = await fetch("/api/admin/tenant", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

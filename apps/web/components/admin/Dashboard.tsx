@@ -128,7 +128,7 @@ export function Dashboard({ className }: DashboardProps) {
     setError("");
     try {
       // Fetch analytics data
-      const analyticsResponse = await fetch("/api/analytics", {
+      const analyticsResponse = await fetch("/api/admin/analytics", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -142,7 +142,7 @@ export function Dashboard({ className }: DashboardProps) {
 
       // Fetch tenants if needed
       if (activeTab === "tenants" || activeTab === "overview") {
-        const response = await fetch("/api/tenant", {
+        const response = await fetch("/api/admin/tenant", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

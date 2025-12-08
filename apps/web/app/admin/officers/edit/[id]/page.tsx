@@ -168,7 +168,7 @@ export default function EditOfficerPage() {
   const fetchTenants = async () => {
     setLoadingTenants(true);
     try {
-      const response = await fetch("/api/tenant", {
+      const response = await fetch("/api/admin/tenant", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

@@ -10,7 +10,7 @@ import LoanDetails from "../../../../models/LoanDetails";
 export const GET = async (req: NextRequest) => {
   try {
     await ConnectDb();
-
+    console.log("Connected to database for analytics"); 
     const [tenants, users, banks, stateOfficers, loans, loanDetails] = await Promise.all([
       (Tenant as any).find({}).lean(),
       (User as any).find({}).lean(),
@@ -33,7 +33,7 @@ export const GET = async (req: NextRequest) => {
     const activeUsers = users.filter((u: any) => u.isActive).length;
     const activeBanks = banks.filter((b: any) => b.isActive).length;
     const activeStateOfficers = stateOfficers.filter((o: any) => o.isActive).length;
-
+    
     // Verified users and officers
     const verifiedUsers = users.filter((u: any) => u.isVerified).length;
     const verifiedStateOfficers = stateOfficers.filter((o: any) => o.isVerified).length;
@@ -83,6 +83,7 @@ export const GET = async (req: NextRequest) => {
     const loansByState = await Promise.all(
       Object.entries(loansByTenant).map(async ([tenantId, count]) => {
         if (tenantId === "Unknown") return { state: "Unknown", count };
+        console.log("Finding tenant for ID:", tenantId);
         const tenant = tenants.find((t: any) => t._id.toString() === tenantId);
         return { state: tenant?.state || "Unknown", count };
       })

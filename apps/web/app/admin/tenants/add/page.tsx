@@ -121,7 +121,7 @@ export default function AddTenantPage() {
     setSuccess(false);
 
     try {
-      const response = await fetch("/api/tenant", {
+      const response = await fetch("/api/admin/tenant", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

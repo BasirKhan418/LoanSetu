@@ -9,6 +9,7 @@ import {
   IconSettings,
   IconLogout,
   IconBuildingBank,
+  IconFileDescription,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -40,6 +41,13 @@ export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
       href: "/bank/dashboard",
       icon: (
         <IconLayoutDashboard className="h-5 w-5 shrink-0 text-neutral-700" />
+      ),
+    },
+    {
+      label: "Loan Products",
+      href: "/bank/loan-details",
+      icon: (
+        <IconFileDescription className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
