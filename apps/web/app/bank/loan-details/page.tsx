@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { IconPlus, IconEdit, IconSearch } from "@tabler/icons-react";
+import { IconPlus, IconEdit, IconSearch, IconCopy, IconCheck } from "@tabler/icons-react";
 import { BankSidebar } from "../../../components/bank/BankSidebar";
 
 interface BankData {
@@ -34,6 +34,7 @@ export default function LoanDetailsPage() {
   const [loanDetails, setLoanDetails] = useState<LoanDetail[]>([]);
   const [filteredLoans, setFilteredLoans] = useState<LoanDetail[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     validateBankSession();
@@ -45,6 +46,7 @@ export default function LoanDetailsPage() {
     } else {
       const filtered = loanDetails.filter(
         (loan) =>
+          loan._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
           loan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           loan.schemeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           loan.assetType.toLowerCase().includes(searchTerm.toLowerCase())
@@ -102,6 +104,16 @@ export default function LoanDetailsPage() {
     }).format(amount);
   };
 
+  const copyToClipboard = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   if (!bankData) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-white">
@@ -143,7 +155,7 @@ export default function LoanDetailsPage() {
             <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
             <input
               type="text"
-              placeholder="Search by name, scheme, or asset type..."
+              placeholder="Search by ID, name, scheme, or asset type..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -166,6 +178,9 @@ export default function LoanDetailsPage() {
               <table className="w-full">
                 <thead className="bg-neutral-50 border-b border-neutral-200">
                   <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      Loan ID
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                       Product Name
                     </th>
@@ -192,6 +207,24 @@ export default function LoanDetailsPage() {
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {filteredLoans.map((loan) => (
                     <tr key={loan._id} className="hover:bg-neutral-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-neutral-100 px-2 py-1 rounded font-mono text-neutral-700">
+                            {loan._id}
+                          </code>
+                          <button
+                            onClick={() => copyToClipboard(loan._id)}
+                            className="p-1 hover:bg-neutral-100 rounded transition-colors flex-shrink-0"
+                            title="Copy ID"
+                          >
+                            {copiedId === loan._id ? (
+                              <IconCheck className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <IconCopy className="h-4 w-4 text-neutral-400" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-neutral-900">
                           {loan.name}
