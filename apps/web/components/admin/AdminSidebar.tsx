@@ -10,6 +10,7 @@ import {
   IconSettings,
   IconLogout,
   IconBuilding,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -68,6 +69,13 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
       href: "/admin/banks",
       icon: (
         <IconBuildingBank className="h-5 w-5 shrink-0 text-neutral-700" />
+      ),
+    },
+    {
+      label: "RuleSets",
+      href: "/admin/rulesets",
+      icon: (
+        <IconShieldCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {

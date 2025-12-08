@@ -292,7 +292,6 @@ export function Dashboard({ className }: DashboardProps) {
           ))}
         </div>
 
-        {/* Content Area */}
         {error && (
           <div className="p-4 rounded-lg bg-red-50 text-red-600">
             {error}
