@@ -69,12 +69,6 @@ export default function AddBankPage() {
 
   const validateAdminSession = async () => {
     try {
-      const token = getCookie("token");
-      
-      if (!token) {
-        router.push("/admin/signin");
-        return;
-      }
 
       const response = await fetch("/api/verify", {
         method: "GET",
