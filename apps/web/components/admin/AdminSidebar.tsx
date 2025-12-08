@@ -30,9 +30,27 @@ interface AdminSidebarProps {
 export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
   const router = useRouter();
 
-  const handleLogout = () => {
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/admin/signin");
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        router.push("/admin/signin");
+      } else {
+        console.error("Logout failed:", data.message);
+        // Still redirect even if API call fails
+        router.push("/admin/signin");
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Redirect anyway to ensure user is logged out
+      router.push("/admin/signin");
+    }
   };
 
   const links = [

@@ -31,10 +31,6 @@ export default function NavbarDemo() {
       name: "Impact",
       link: "#impact",
     },
-    {
-      name: "Pricing",
-      link: "#pricing",
-    },
   ];
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -46,7 +42,6 @@ export default function NavbarDemo() {
           <NavbarLogo />
           <NavItems items={navItems} />
           <div className="flex items-center gap-4">
-            <NavbarButton variant="secondary">Request Demo</NavbarButton>
             <NavbarButton variant="primary" onClick={() => window.location.href = '/auth/signin'}>
               Sign In
             </NavbarButton>
@@ -72,19 +67,12 @@ export default function NavbarDemo() {
                 key={`mobile-link-${idx}`}
                 href={item.link}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="relative text-neutral-600 dark:text-neutral-300"
+                className="relative text-gray-700 hover:text-orange-600 font-semibold transition-colors"
               >
                 <span className="block">{item.name}</span>
               </a>
             ))}
             <div className="flex w-full flex-col gap-4">
-              <NavbarButton
-                onClick={() => setIsMobileMenuOpen(false)}
-                variant="secondary"
-                className="w-full"
-              >
-                Request Demo
-              </NavbarButton>
               <NavbarButton
                 onClick={() => {
                   setIsMobileMenuOpen(false);

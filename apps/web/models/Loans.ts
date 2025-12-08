@@ -35,9 +35,14 @@ const LoanSchema = new mongoose.Schema(
 
     // Per-loan financial actuals
     sanctionAmount: { type: Number, required: true }, // should be between LoanDetails.minAmount & maxAmount
+    subsidyAmount: { type: Number, default: 0 }, // calculated subsidy amount
     currency: { type: String, default: "INR" },
     bankid:{type: mongoose.Schema.Types.ObjectId,ref:"Bank",required:true},
     sanctionDate: { type: Date, required: true },
+
+    // Applicant information (cached for quick access)
+    applicantName: { type: String },
+    assetType: { type: String }, // cached from LoanDetails
 
     // Chosen mode for this particular loan (allowed set is in LoanDetails.allowedDisbursementModes)
     disbursementMode: {
@@ -49,7 +54,7 @@ const LoanSchema = new mongoose.Schema(
     // Utilization verification status (your workflow status)
     verificationStatus: {
       type: String,
-      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"],
+      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED","RESUBMISSION"],
       default: "PENDING"
     },
 
@@ -69,4 +74,4 @@ const LoanSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models?.Loan || mongoose.model("Loan", LoanSchema);
+export default mongoose.models?.Loans || mongoose.model("Loans", LoanSchema);

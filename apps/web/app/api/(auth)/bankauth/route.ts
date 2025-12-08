@@ -53,8 +53,8 @@ export const POST = async (request: NextRequest) => {
             const newBank = new Bank(reqBody);
             await newBank.save();
             return NextResponse.json({message: "Bank created successfully",success:true}, {status: 201});
-
         }
+
         else{
             const bank = await Bank.findOne({ifsc: reqBody.ifsc } as any);
             if(!bank){
@@ -64,6 +64,7 @@ export const POST = async (request: NextRequest) => {
             await redis.set(`bank-otp-${reqBody.ifsc}`, generateotp, "EX", 5 * 60);
             //send email or sms with otp here
             await sendBankOfficerOtpEmail({ email: bank.contactEmail!, otp: generateotp, name: bank.contactName!, bankName: `${bank.name} - ${bank.branchName}` });
+            console.log("Generated OTP for bank officer:", generateotp);
             return NextResponse.json({message: "OTP generated successfully", success:true}, {status: 200});
 
         }
@@ -78,6 +79,7 @@ export const PUT = async (request: NextRequest) => {
         await ConnectDb();
         const reqBody = await request.json();
         const bank = await (Bank as any).findById(reqBody.id as string);
+        console.log("Updating bank:", reqBody.id);
         if(!bank){
             return NextResponse.json({message: "Bank not found",success:false}, {status: 404});
         }

@@ -29,9 +29,27 @@ interface StateOfficerSidebarProps {
 export function StateOfficerSidebar({ open, setOpen, officerData }: StateOfficerSidebarProps) {
   const router = useRouter();
 
-  const handleLogout = () => {
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/stateofficer/signin");
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        router.push("/stateofficer/signin");
+      } else {
+        console.error("Logout failed:", data.message);
+        // Still redirect even if API call fails
+        router.push("/stateofficer/signin");
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Redirect anyway to ensure user is logged out
+      router.push("/stateofficer/signin");
+    }
   };
 
   const links = [

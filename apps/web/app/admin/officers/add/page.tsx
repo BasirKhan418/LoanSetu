@@ -128,7 +128,7 @@ export default function AddOfficerPage() {
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch("/api/admin/tenant", {
+      const response = await fetch("/api/tenant", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
