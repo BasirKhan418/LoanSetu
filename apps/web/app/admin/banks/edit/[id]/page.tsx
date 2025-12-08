@@ -332,7 +332,7 @@ export default function EditBankPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+          <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto">
             {/* Bank Details Section */}
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">

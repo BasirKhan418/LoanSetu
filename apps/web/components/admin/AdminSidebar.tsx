@@ -51,7 +51,7 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
     },
     {
       label: "Users",
-      href: "/admin/dashboard?tab=users",
+      href: "/admin/users",
       icon: (
         <IconUsers className="h-5 w-5 shrink-0 text-neutral-700" />
       ),

@@ -1,25 +1,32 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
-  IconBuildingBank,
+  IconUser,
+  IconDeviceFloppy,
   IconArrowLeft,
+  IconMapPin,
+  IconPhone,
+  IconMail,
 } from "@tabler/icons-react";
-import { cn } from "../../../../lib/utils";
-import { AdminSidebar } from "../../../../components/admin/AdminSidebar";
+import { cn } from "../../../../../lib/utils";
+import { AdminSidebar } from "../../../../../components/admin/AdminSidebar";
 
-interface BankFormData {
+interface UserFormData {
   name: string;
-  branchName: string;
-  ifsc: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  state: string;
+  phone: string;
+  email: string;
+  addressLine1: string;
+  addressLine2: string;
+  village: string;
+  block: string;
   district: string;
+  state: string;
+  pincode: string;
   tenantId: string;
   isActive: boolean;
+  isVerified: boolean;
 }
 
 interface AdminData {
@@ -41,8 +48,11 @@ interface Tenant {
   isActive: boolean;
 }
 
-export default function AddBankPage() {
+export default function EditUserPage() {
   const router = useRouter();
+  const params = useParams();
+  const userId = params.id as string;
+  
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -50,17 +60,20 @@ export default function AddBankPage() {
   const [success, setSuccess] = useState(false);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [formData, setFormData] = useState<BankFormData>({
+  const [formData, setFormData] = useState<UserFormData>({
     name: "",
-    branchName: "",
-    ifsc: "",
-    contactName: "",
-    contactEmail: "",
-    contactPhone: "",
-    state: "",
+    phone: "",
+    email: "",
+    addressLine1: "",
+    addressLine2: "",
+    village: "",
+    block: "",
     district: "",
+    state: "",
+    pincode: "",
     tenantId: "",
     isActive: true,
+    isVerified: false,
   });
 
   useEffect(() => {
@@ -104,22 +117,59 @@ export default function AddBankPage() {
 
       setAdminData(data.data);
       
-      // If not super admin, pre-fill state and tenantId
-      if (!data.data.isSuperAdmin) {
-        setFormData(prev => ({
-          ...prev,
-          state: data.data.state,
-          tenantId: data.data.tenantId,
-        }));
-      } else {
-        // Fetch tenants for super admin
+      // Fetch user data first
+      await fetchUserData();
+      
+      // If super admin, fetch tenants
+      if (data.data.isSuperAdmin) {
         await fetchTenants();
       }
-      
-      setLoading(false);
     } catch (error) {
       console.error("Session validation error:", error);
       router.push("/admin/signin");
+    }
+  };
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch("/api/userauth", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const user = data.data.find((u: any) => u._id === userId);
+        if (user) {
+          setFormData({
+            name: user.name || "",
+            phone: user.phone || "",
+            email: user.email || "",
+            addressLine1: user.addressLine1 || "",
+            addressLine2: user.addressLine2 || "",
+            village: user.village || "",
+            block: user.block || "",
+            district: user.district || "",
+            state: user.state || "",
+            pincode: user.pincode || "",
+            tenantId: user.tenantId || "",
+            isActive: user.isActive ?? true,
+            isVerified: user.isVerified ?? false,
+          });
+        } else {
+          setError("User not found");
+        }
+      } else {
+        setError(data.message || "Failed to fetch user data");
+      }
+    } catch (err) {
+      setError("Error fetching user data");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,20 +203,11 @@ export default function AddBankPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    
-    // Auto-uppercase IFSC code
-    if (name === "ifsc") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value.toUpperCase(),
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]:
-          type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
   };
 
   const handleTenantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -190,28 +231,43 @@ export default function AddBankPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.tenantId || !formData.state) {
+      setError("Please select a tenant/state");
+      return;
+    }
+    
+    if (!formData.name || !formData.phone) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    // Validate phone number (10 digits)
+    if (!/^\d{10}$/.test(formData.phone)) {
+      setError("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    // Validate pincode (6 digits)
+    if (formData.pincode && !/^\d{6}$/.test(formData.pincode)) {
+      setError("Pincode must be exactly 6 digits");
+      return;
+    }
+    
     setSubmitting(true);
     setError("");
     setSuccess(false);
 
-    // Validate IFSC format (11 characters: 4 letters + 0 + 6 alphanumeric)
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    if (!ifscRegex.test(formData.ifsc)) {
-      setError("Invalid IFSC code format. Must be 11 characters (e.g., SBIN0000123)");
-      setSubmitting(false);
-      return;
-    }
-
     try {
-      const response = await fetch("/api/bankauth", {
-        method: "POST",
+      const response = await fetch("/api/userauth", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify({
+          _id: userId,
           ...formData,
-          type: "CreateBank",
         }),
       });
 
@@ -220,13 +276,13 @@ export default function AddBankPage() {
       if (data.success) {
         setSuccess(true);
         setTimeout(() => {
-          router.push("/admin/banks");
+          router.push("/admin/users");
         }, 2000);
       } else {
-        setError(data.message || "Failed to create bank officer");
+        setError(data.message || "Failed to update user");
       }
     } catch (err) {
-      setError("Error creating bank officer. Please try again.");
+      setError("Error updating user. Please try again.");
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -238,7 +294,7 @@ export default function AddBankPage() {
       <div className="h-screen w-full flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-neutral-600 font-medium">Loading...</p>
+          <p className="text-neutral-600 font-medium">Loading user data...</p>
         </div>
       </div>
     );
@@ -258,17 +314,17 @@ export default function AddBankPage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-neutral-200">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.push("/admin/banks")}
+                onClick={() => router.push("/admin/users")}
                 className="p-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
               >
                 <IconArrowLeft className="h-5 w-5 text-neutral-700" />
               </button>
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-                  Add Bank Officer
+                  Edit User
                 </h1>
                 <p className="text-sm text-neutral-600 mt-1">
-                  Create a new bank officer entry
+                  Update user information
                 </p>
               </div>
             </div>
@@ -283,29 +339,29 @@ export default function AddBankPage() {
 
           {success && (
             <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-600">
-              Bank officer created successfully! Redirecting...
+              User updated successfully! Redirecting...
             </div>
           )}
 
           {!adminData?.isSuperAdmin && (
             <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-orange-600">
-              You are creating a bank officer for {adminData?.state}.
+              You are editing a user for {adminData?.state}.
             </div>
           )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto">
-            {/* Bank Details Section */}
+            {/* Personal Details Section */}
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
-                <IconBuildingBank className="h-5 w-5 text-orange-600" />
-                Bank Details
+                <IconUser className="h-5 w-5 text-orange-600" />
+                Personal Details
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Bank Name <span className="text-red-500">*</span>
+                    Full Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -313,43 +369,139 @@ export default function AddBankPage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
-                    placeholder="e.g., State Bank of India"
+                    placeholder="e.g., Rajesh Kumar"
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Branch Name <span className="text-red-500">*</span>
+                    <IconPhone className="h-4 w-4 inline mr-1" />
+                    Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
-                    name="branchName"
-                    value={formData.branchName}
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    placeholder="e.g., Bhubaneswar Main Branch"
+                    maxLength={10}
+                    placeholder="e.g., 9876543210"
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    IFSC Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="ifsc"
-                    value={formData.ifsc}
-                    onChange={handleInputChange}
-                    required
-                    maxLength={11}
-                    placeholder="e.g., SBIN0000123"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono"
                   />
                   <p className="text-xs text-neutral-500 mt-1">
-                    11 characters: 4 letters + 0 + 6 alphanumeric
+                    10-digit mobile number (used for OTP login)
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    <IconMail className="h-4 w-4 inline mr-1" />
+                    Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="e.g., user@example.com"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address Details Section */}
+            <div className="space-y-4 pt-4 border-t border-neutral-200">
+              <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                <IconMapPin className="h-5 w-5 text-orange-600" />
+                Address Details
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Address Line 1
+                  </label>
+                  <input
+                    type="text"
+                    name="addressLine1"
+                    value={formData.addressLine1}
+                    onChange={handleInputChange}
+                    placeholder="House/Building number, Street name"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Address Line 2
+                  </label>
+                  <input
+                    type="text"
+                    name="addressLine2"
+                    value={formData.addressLine2}
+                    onChange={handleInputChange}
+                    placeholder="Landmark, Area"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Village/Town
+                  </label>
+                  <input
+                    type="text"
+                    name="village"
+                    value={formData.village}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Bhubaneswar"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Block
+                  </label>
+                  <input
+                    type="text"
+                    name="block"
+                    value={formData.block}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Bhubaneswar"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    District
+                  </label>
+                  <input
+                    type="text"
+                    name="district"
+                    value={formData.district}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Khordha"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Pincode
+                  </label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    value={formData.pincode}
+                    onChange={handleInputChange}
+                    maxLength={6}
+                    placeholder="e.g., 751001"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
                 </div>
 
                 {adminData?.isSuperAdmin && (
@@ -388,78 +540,15 @@ export default function AddBankPage() {
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    District <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="district"
-                    value={formData.district}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g., Khordha"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
               </div>
             </div>
 
-            {/* Contact Details Section */}
+            {/* Status Section */}
             <div className="space-y-4 pt-4 border-t border-neutral-200">
-              <h2 className="text-lg font-semibold text-neutral-900">Contact Person Details</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">Account Status</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Contact Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="contactName"
-                    value={formData.contactName}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g., Arun Kumar"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Contact Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="contactEmail"
-                    value={formData.contactEmail}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g., officer@bank.com"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Contact Phone <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="contactPhone"
-                    value={formData.contactPhone}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g., 9876543210"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Status
-                  </label>
                   <label className="flex items-center gap-2 px-3 py-2 border border-neutral-300 rounded-lg cursor-pointer hover:bg-neutral-50">
                     <input
                       type="checkbox"
@@ -468,7 +557,20 @@ export default function AddBankPage() {
                       onChange={handleInputChange}
                       className="w-4 h-4 text-orange-600 border-neutral-300 rounded focus:ring-orange-500"
                     />
-                    <span className="text-sm text-neutral-700">Active</span>
+                    <span className="text-sm text-neutral-700">Account Active</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 px-3 py-2 border border-neutral-300 rounded-lg cursor-pointer hover:bg-neutral-50">
+                    <input
+                      type="checkbox"
+                      name="isVerified"
+                      checked={formData.isVerified}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-orange-600 border-neutral-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm text-neutral-700">Verified User</span>
                   </label>
                 </div>
               </div>
@@ -484,15 +586,18 @@ export default function AddBankPage() {
                 {submitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Creating...
+                    Updating...
                   </>
                 ) : (
-                  "Create Bank Officer"
+                  <>
+                    <IconDeviceFloppy className="h-4 w-4" />
+                    Update User
+                  </>
                 )}
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/admin/banks")}
+                onClick={() => router.push("/admin/users")}
                 className="px-6 py-2.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
               >
                 Cancel
