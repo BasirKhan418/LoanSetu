@@ -2,12 +2,14 @@ import { NextResponse, NextRequest } from "next/server";
 import Loans from "../../../../models/Loans";
 import ConnectDb from "../../../../middleware/connectDb";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
+import LoanDetails from "../../../../models/LoanDetails";
 import User from "../../../../models/User";
 import { cookies } from "next/headers";
 import Bank from "../../../../models/Bank";
 
 export const GET= async (req: NextRequest) => {
     try{
+        void LoanDetails; 
         await ConnectDb();
         const cookieStore = await cookies();
         const token = cookieStore.get("token")?.value;
@@ -39,7 +41,13 @@ export const GET= async (req: NextRequest) => {
             );
         }
         const bankId = fetchbankDetails._id;
-        const loans = await Loans.find({ bankid: bankId } as any);
+        const loans = await Loans.find({ bankid: bankId } as any)
+  .populate({ path: "beneficiaryId", model: "User" })
+  .populate({ path: "loanDetailsId", model: "LoanDetails" })
+  .populate({ path: "createdByBankOfficerId", model: "Bank" })
+  .populate({ path: "bankid", model: "Bank" });
+
+
         return NextResponse.json(
             {
                 message: "Loans fetched successfully",
@@ -51,6 +59,7 @@ export const GET= async (req: NextRequest) => {
 
     }
     catch(err:any){
+        console.log("Error in GET /api/(bank)/loans:", err);
         return NextResponse.json(
             {
                 message: "Something went wrong, please try again after some time",
