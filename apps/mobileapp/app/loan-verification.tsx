@@ -1,7 +1,9 @@
 // apps/mobileapp/app/loan-verification.tsx
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { beneficiaryService } from '@/services/beneficiaryService';
+import { getTranslation } from '@/utils/translations';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -51,6 +53,7 @@ export default function LoanVerificationScreen() {
   const params = useLocalSearchParams();
   const { isOnline, isInitialized } = useDatabase();
   const { hasSetLocation, showLocationPopup } = useLocation();
+  const { currentLanguage } = useLanguage();
   
   const [productName, setProductName] = useState('');
   const [productDetails, setProductDetails] = useState('');
@@ -385,7 +388,7 @@ export default function LoanVerificationScreen() {
             <ChevronLeft size={24} color="#1F2937" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Loan Verification</Text>
+            <Text style={styles.headerTitle}>{getTranslation('loanVerification', currentLanguage.code)}</Text>
             <View style={styles.headerSubtitleRow}>
               <Text style={styles.headerSubtitle}>{loanData.referenceId}</Text>
               <View style={[styles.onlineIndicator, !isOnline && styles.offlineIndicator]}>
@@ -395,7 +398,7 @@ export default function LoanVerificationScreen() {
                   <WifiOff size={12} color="#ef4444" strokeWidth={2} />
                 )}
                 <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
-                  {isOnline ? 'Online' : 'Offline'}
+                  {isOnline ? getTranslation('online', currentLanguage.code) : getTranslation('offline', currentLanguage.code)}
                 </Text>
               </View>
             </View>
@@ -408,7 +411,7 @@ export default function LoanVerificationScreen() {
         <View style={styles.offlineBanner}>
           <WifiOff size={16} color="#ef4444" strokeWidth={2} />
           <Text style={styles.offlineBannerText}>
-            You&apos;re offline. Submissions will be saved locally and synced automatically.
+            {getTranslation('offlineBanner', currentLanguage.code)}
           </Text>
         </View>
       )}
@@ -420,7 +423,7 @@ export default function LoanVerificationScreen() {
           <Text style={styles.loanAmount}>{loanData.amount}</Text>
         </View>
         <Text style={styles.loanInfoText}>
-          Upload proof of purchase with product photos to receive loan disbursement
+          {getTranslation('loanInfoText', currentLanguage.code)}
         </Text>
       </View>
 
@@ -432,14 +435,14 @@ export default function LoanVerificationScreen() {
         {/* Product Information Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Product Information</Text>
+            <Text style={styles.sectionTitle}>{getTranslation('productInformation', currentLanguage.code)}</Text>
             {hasProductInfo && (
               <CheckCircle size={20} color="#10b981" strokeWidth={2} />
             )}
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Product Name *</Text>
+            <Text style={styles.label}>{getTranslation('productName', currentLanguage.code)} *</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g., Mahindra 575 DI Tractor"
@@ -450,7 +453,7 @@ export default function LoanVerificationScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Product Details *</Text>
+            <Text style={styles.label}>{getTranslation('productDetails', currentLanguage.code)} *</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="Enter model number, specifications, purchase date, dealer name..."
@@ -467,7 +470,7 @@ export default function LoanVerificationScreen() {
         {/* Product Photos Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Product Photos (4 Angles)</Text>
+            <Text style={styles.sectionTitle}>{getTranslation('productPhotos', currentLanguage.code)}</Text>
             {hasAllPhotos && (
               <CheckCircle size={20} color="#10b981" strokeWidth={2} />
             )}
@@ -476,7 +479,7 @@ export default function LoanVerificationScreen() {
           <View style={styles.sectionDescriptionContainer}>
             <Camera size={16} color="#6B7280" strokeWidth={2} />
             <Text style={styles.sectionDescription}>
-              Capture clear photos from all 4 angles. All photos will be geo-tagged automatically.
+              {getTranslation('captureClearPhotosNote', currentLanguage.code)}
             </Text>
           </View>
 
@@ -520,7 +523,7 @@ export default function LoanVerificationScreen() {
           <View style={styles.infoBox}>
             <Info size={16} color="#FC8019" strokeWidth={2} />
             <Text style={styles.infoBoxText}>
-              Camera only - no gallery upload. Photos are automatically geo-tagged for authenticity.
+              {getTranslation('cameraOnlyNote', currentLanguage.code)}
             </Text>
           </View>
         </View>
@@ -528,7 +531,7 @@ export default function LoanVerificationScreen() {
         {/* Invoice/Ownership Proof Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Invoice / Ownership Proof</Text>
+            <Text style={styles.sectionTitle}>{getTranslation('invoiceOwnershipProof', currentLanguage.code)}</Text>
             {hasInvoice && (
               <CheckCircle size={20} color="#10b981" strokeWidth={2} />
             )}
@@ -537,7 +540,7 @@ export default function LoanVerificationScreen() {
           <View style={styles.sectionDescriptionContainer}>
             <FileText size={16} color="#6B7280" strokeWidth={2} />
             <Text style={styles.sectionDescription}>
-              Upload purchase invoice or ownership proof document for verification.
+              {getTranslation('invoiceOwnershipProof', currentLanguage.code)}
             </Text>
           </View>
 
@@ -553,7 +556,7 @@ export default function LoanVerificationScreen() {
                 activeOpacity={0.7}
               >
                 <Camera size={18} color="#FC8019" strokeWidth={2} />
-                <Text style={styles.retakeInvoiceText}>Retake</Text>
+                <Text style={styles.retakeInvoiceText}>{getTranslation('retake', currentLanguage.code)}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -563,21 +566,21 @@ export default function LoanVerificationScreen() {
               activeOpacity={0.7}
             >
               <Camera size={24} color="#FC8019" strokeWidth={2} />
-              <Text style={styles.uploadInvoiceText}>Capture Invoice</Text>
+              <Text style={styles.uploadInvoiceText}>{getTranslation('captureInvoice', currentLanguage.code)}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Requirements Checklist */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Verification Checklist</Text>
+          <Text style={styles.sectionTitle}>{getTranslation('verificationChecklist', currentLanguage.code)}</Text>
           
           <View style={styles.checklistItem}>
             <View style={[styles.checkbox, hasProductInfo && styles.checkboxChecked]}>
               {hasProductInfo && <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.5} fill="#10b981" />}
             </View>
             <FileText size={18} color="#6B7280" strokeWidth={2} />
-            <Text style={styles.checklistText}>Product information provided</Text>
+            <Text style={styles.checklistText}>{getTranslation('productInfoProvided', currentLanguage.code)}</Text>
           </View>
 
           <View style={styles.checklistItem}>
@@ -585,7 +588,7 @@ export default function LoanVerificationScreen() {
               {hasAllPhotos && <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.5} fill="#10b981" />}
             </View>
             <Camera size={18} color="#6B7280" strokeWidth={2} />
-            <Text style={styles.checklistText}>All 4 product photos captured</Text>
+            <Text style={styles.checklistText}>{getTranslation('allPhotosCaptured', currentLanguage.code)}</Text>
           </View>
 
           <View style={styles.checklistItem}>
@@ -593,7 +596,7 @@ export default function LoanVerificationScreen() {
               {hasAllPhotos && <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.5} fill="#10b981" />}
             </View>
             <MapPin size={18} color="#6B7280" strokeWidth={2} />
-            <Text style={styles.checklistText}>Photos geo-tagged with location</Text>
+            <Text style={styles.checklistText}>{getTranslation('photosGeoTagged', currentLanguage.code)}</Text>
           </View>
 
           <View style={styles.checklistItem}>
@@ -601,7 +604,7 @@ export default function LoanVerificationScreen() {
               {hasInvoice && <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.5} fill="#10b981" />}
             </View>
             <FileText size={18} color="#6B7280" strokeWidth={2} />
-            <Text style={styles.checklistText}>Invoice or ownership proof uploaded</Text>
+            <Text style={styles.checklistText}>{getTranslation('invoiceUploaded', currentLanguage.code)}</Text>
           </View>
         </View>
       </ScrollView>
@@ -618,7 +621,7 @@ export default function LoanVerificationScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.submitButtonText}>
-              {canSubmit ? 'Submit for Verification' : 'Complete All Requirements'}
+              {canSubmit ? getTranslation('submitForVerification', currentLanguage.code) : getTranslation('completeAllRequirements', currentLanguage.code)}
             </Text>
           )}
         </TouchableOpacity>
@@ -652,10 +655,10 @@ export default function LoanVerificationScreen() {
         </TouchableOpacity>
         <Text style={styles.cameraTitle}>
           {currentCaptureType === 'invoice'
-            ? 'Invoice / Ownership Proof'
+            ? getTranslation('invoiceOwnershipProof', currentLanguage.code)
             : currentCaptureType
             ? `${currentCaptureType.charAt(0).toUpperCase()}${currentCaptureType.slice(1)} View`
-            : 'Capture Photo'}
+            : getTranslation('capturePhoto', currentLanguage.code)}
         </Text>
       </View>
 
@@ -680,7 +683,7 @@ export default function LoanVerificationScreen() {
         >
           <View style={styles.captureButtonInner} />
         </TouchableOpacity>
-        {isCapturing && <Text style={styles.capturingText}>Capturing…</Text>}
+        {isCapturing && <Text style={styles.capturingText}>{getTranslation('capturing', currentLanguage.code)}</Text>}
       </View>
     </View>
   </View>
@@ -700,14 +703,14 @@ export default function LoanVerificationScreen() {
           onPress={handleRetakePhoto}
           activeOpacity={0.8}
         >
-          <Text style={styles.retakeButtonText}>Retake</Text>
+          <Text style={styles.retakeButtonText}>{getTranslation('retake', currentLanguage.code)}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.confirmButton}
           onPress={handleConfirmPhoto}
           activeOpacity={0.8}
         >
-          <Text style={styles.confirmButtonText}>Use Photo</Text>
+          <Text style={styles.confirmButtonText}>{getTranslation('usePhoto', currentLanguage.code)}</Text>
         </TouchableOpacity>
       </View>
     </View>

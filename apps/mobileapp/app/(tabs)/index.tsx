@@ -1,28 +1,30 @@
 import { LocationPopup } from '@/components/LocationPopup';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
+import { getTranslation } from '@/utils/translations';
 import { router } from 'expo-router';
-import { 
-  FileText, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
+import {
   AlertCircle,
+  CheckCircle,
+  Clock,
+  FileText,
+  HelpCircle,
   Plus,
   Search,
-  HelpCircle,
+  TrendingUp,
 } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { 
+import {
   Dimensions,
   Image,
   Platform,
-  ScrollView, 
+  ScrollView,
   StatusBar,
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View 
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -41,6 +43,7 @@ interface Loan {
 export default function DashboardScreen() {
   const { showLocationPopup, hasSetLocation } = useLocation();
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const insets = useSafeAreaInsets();
 
   // Show location popup on mount if location not set
@@ -93,16 +96,16 @@ export default function DashboardScreen() {
   };
 
   const quickActions = [
-    { id: 1, title: 'New Application', icon: Plus, color: '#FC8019', route: '/applications' },
-    { id: 2, title: 'Track Status', icon: Search, color: '#FC8019', route: '/applications' },
-    { id: 3, title: 'Help & Support', icon: HelpCircle, color: '#FC8019', route: '/profile' },
+    { id: 1, title: getTranslation('newApplication', currentLanguage.code), icon: Plus, color: '#FC8019', route: '/applications' },
+    { id: 2, title: getTranslation('trackStatus', currentLanguage.code), icon: Search, color: '#FC8019', route: '/applications' },
+    { id: 3, title: getTranslation('helpSupport', currentLanguage.code), icon: HelpCircle, color: '#FC8019', route: '/profile' },
   ];
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return getTranslation('goodMorning', currentLanguage.code);
+    if (hour < 17) return getTranslation('goodAfternoon', currentLanguage.code);
+    return getTranslation('goodEvening', currentLanguage.code);
   };
 
   const getStatusColor = (status: string) => {
@@ -146,7 +149,7 @@ export default function DashboardScreen() {
                   resizeMode="contain"
                 />
               </View>
-              <Text style={styles.appName}>LoanSetu</Text>
+              <Text style={styles.appName}>{getTranslation('appName', currentLanguage.code)}</Text>
             </View>
             <TouchableOpacity 
               style={styles.profileButton}
@@ -164,7 +167,7 @@ export default function DashboardScreen() {
 
           <View style={styles.welcomeSection}>
             <Text style={styles.greeting}>{getGreeting()}, {user?.name || 'User'}</Text>
-            <Text style={styles.welcomeSubtitle}>Track and manage your loans</Text>
+            <Text style={styles.welcomeSubtitle}>{getTranslation('trackManageLoans', currentLanguage.code)}</Text>
           </View>
         </View>
 
@@ -180,7 +183,7 @@ export default function DashboardScreen() {
                 <FileText size={24} color="#FC8019" strokeWidth={2.5} />
               </View>
               <Text style={styles.statValue}>{stats.totalLoans}</Text>
-              <Text style={styles.statLabel}>Total Applications</Text>
+              <Text style={styles.statLabel}>{getTranslation('totalApplications', currentLanguage.code)}</Text>
             </View>
 
             <View style={styles.statCard}>
@@ -188,7 +191,7 @@ export default function DashboardScreen() {
                 <TrendingUp size={24} color="#FC8019" strokeWidth={2.5} />
               </View>
               <Text style={styles.statValue}>{stats.totalAmount}</Text>
-              <Text style={styles.statLabel}>Total Amount</Text>
+              <Text style={styles.statLabel}>{getTranslation('totalAmount', currentLanguage.code)}</Text>
             </View>
           </View>
 
@@ -197,7 +200,7 @@ export default function DashboardScreen() {
               <CheckCircle size={20} color="#FC8019" strokeWidth={2} />
               <View style={styles.miniStatContent}>
                 <Text style={styles.miniStatValue}>{stats.approved}</Text>
-                <Text style={styles.miniStatLabel}>Approved</Text>
+                <Text style={styles.miniStatLabel}>{getTranslation('approved', currentLanguage.code)}</Text>
               </View>
             </View>
 
@@ -205,7 +208,7 @@ export default function DashboardScreen() {
               <Clock size={20} color="#F59E0B" strokeWidth={2} />
               <View style={styles.miniStatContent}>
                 <Text style={styles.miniStatValue}>{stats.pending}</Text>
-                <Text style={styles.miniStatLabel}>Pending</Text>
+                <Text style={styles.miniStatLabel}>{getTranslation('pending', currentLanguage.code)}</Text>
               </View>
             </View>
           </View>
@@ -213,9 +216,9 @@ export default function DashboardScreen() {
           {/* Submitted Loans */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>My Applications</Text>
+              <Text style={styles.sectionTitle}>{getTranslation('myApplications', currentLanguage.code)}</Text>
               <TouchableOpacity onPress={() => router.push('/applications')}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>{getTranslation('viewAll', currentLanguage.code)}</Text>
               </TouchableOpacity>
             </View>
 
@@ -243,7 +246,7 @@ export default function DashboardScreen() {
                     <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(loan.status)}15` }]}>
                       <StatusIcon size={14} color={getStatusColor(loan.status)} strokeWidth={2} />
                       <Text style={[styles.statusText, { color: getStatusColor(loan.status) }]}>
-                        {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
+                        {getTranslation(loan.status, currentLanguage.code)}
                       </Text>
                     </View>
                   </View>
@@ -262,7 +265,7 @@ export default function DashboardScreen() {
 
           {/* Quick Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <Text style={styles.sectionTitle}>{getTranslation('quickActions', currentLanguage.code)}</Text>
             <View style={styles.actionsGrid}>
               {quickActions.map((action) => {
                 const Icon = action.icon;

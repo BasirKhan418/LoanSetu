@@ -1,3 +1,5 @@
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getTranslation } from '@/utils/translations';
 import { router } from 'expo-router';
 import { ChevronRight, FileText, Search, X } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -28,6 +30,7 @@ interface Loan {
 
 export default function ApplicationsScreen() {
   const insets = useSafeAreaInsets();
+  const { currentLanguage } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   
   const tabBarHeight = Platform.OS === 'ios' 
@@ -93,8 +96,8 @@ export default function ApplicationsScreen() {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>My Approved Loans</Text>
-            <Text style={styles.headerSubtitle}>{filteredLoans.length} loans available</Text>
+            <Text style={styles.headerTitle}>{getTranslation('myApprovedLoans', currentLanguage.code)}</Text>
+            <Text style={styles.headerSubtitle}>{filteredLoans.length} {getTranslation('loansAvailable', currentLanguage.code)}</Text>
           </View>
         </View>
 
@@ -103,7 +106,7 @@ export default function ApplicationsScreen() {
           <Search size={20} color="#9CA3AF" strokeWidth={2} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by loan name..."
+            placeholder={getTranslation('searchByLoanName', currentLanguage.code)}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -146,8 +149,8 @@ export default function ApplicationsScreen() {
 
           {filteredLoans.length === 0 && (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No loans found</Text>
-              <Text style={styles.emptyStateSubtext}>Try adjusting your search</Text>
+              <Text style={styles.emptyStateText}>{getTranslation('noLoansFound', currentLanguage.code)}</Text>
+              <Text style={styles.emptyStateSubtext}>{getTranslation('tryAdjustingSearch', currentLanguage.code)}</Text>
             </View>
           )}
         </View>
