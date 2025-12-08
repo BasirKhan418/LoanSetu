@@ -52,15 +52,8 @@ export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
       ),
     },
     {
-      label: "Bulk Upload",
-      href: "/bank/bulk-upload",
-      icon: (
-        <IconUpload className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
       label: "Active Loans",
-      href: "/bank/loans",
+      href: "/bank/bulk-upload",
       icon: (
         <IconCreditCard className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
