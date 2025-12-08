@@ -12,6 +12,7 @@ import {
     View
 } from 'react-native';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/utils/translations';
 
@@ -21,14 +22,24 @@ const scale = Math.min(width / 375, height / 812);
 export default function SplashScreenComponent() {
   const router = useRouter();
   const { currentLanguage } = useLanguage();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace('/login');
+      // Check if user is already authenticated
+      if (!isLoading) {
+        if (user) {
+          console.log('[Splash] User authenticated, redirecting to home');
+          router.replace('/(tabs)');
+        } else {
+          console.log('[Splash] No user found, redirecting to login');
+          router.replace('/login');
+        }
+      }
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [router, user, isLoading]);
 
   return (
     <LinearGradient

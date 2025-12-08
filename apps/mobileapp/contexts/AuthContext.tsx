@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authService from '../api/authService';
-import type { User as BackendUser } from '../api/authService';
 import { database } from '../database/schema';
+import { useDatabase } from './DatabaseContext';
 
 interface User {
   _id: string;
@@ -48,6 +48,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { isInitialized: isDatabaseInitialized } = useDatabase();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,8 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    bootstrapAuth();
-  }, []);
+    // Wait for database to be initialized before bootstrapping auth
+    if (isDatabaseInitialized) {
+      bootstrapAuth();
+    }
+  }, [isDatabaseInitialized]);
 
   // Step A: Local bootstrap (works offline)
   const bootstrapAuth = async () => {
@@ -108,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isVerified: userProfile.isVerified,
         };
         setUser(userData);
+        console.log('[Auth] ✅ User state set successfully:', userData._id);
       } else {
         console.log('[Auth] No user profile in SQLite, clearing token');
         await AsyncStorage.removeItem('authToken');
@@ -115,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsLoading(false);
+      console.log('[Auth] ✅ Bootstrap complete. User:', userProfile ? 'Authenticated' : 'Not authenticated');
 
       // Step B: Background remote verify (if internet)
       if (isOnline && storedToken && userProfile) {
