@@ -11,11 +11,18 @@ export const GET = async (req: NextRequest) => {
         await ConnectDb();
         const cookes = await cookies();
         const token = cookes.get("token")?.value;
-        const validation = verifyAdminToken(token!);
-        console.log(validation);
+        console.log("Token from cookies:", token ? "Present" : "Missing");
+        
+        if (!token) {
+            return NextResponse.json({message:"Token not found",success:false},{status:401});
+        }
+        
+        const validation = verifyAdminToken(token);
+        console.log("Token validation result:", validation);
         const isverify = validation.data?.type==="bank"||validation.data?.type==="stateofficer";
 
         if(!validation.success||!isverify){
+            console.log("Validation failed or wrong type. Success:", validation.success, "Type:", validation.data?.type);
             return NextResponse.json({message:"Unauthorized access",success:false},{status:403});
         }
         if(validation.data?.type==="bank"){
@@ -27,30 +34,40 @@ export const GET = async (req: NextRequest) => {
                     { status: 404 }
                 );
             }
-            const findallsubmissions = await Submission.find({ tenantId: fetchbankDetails.tenantId } as any);
+            const findallsubmissions = await Submission.find({ tenantId: fetchbankDetails.tenantId } as any)
+                .populate('loanId', 'loanNumber applicantName')
+                .populate('beneficiaryId', 'name email');
             return NextResponse.json({message:"Submissions fetched successfully by bank",data:findallsubmissions,success:true});
         }
         else if(validation.data?.type==="stateofficer"){
             await ConnectDb();
+            console.log("State Officer ID from token:", validation.data?.id);
             const fetchstateofficerDetails = await (StateOfficer as any).findById(validation.data?.id as any);
+            console.log("State Officer Details:", fetchstateofficerDetails);
             if (!fetchstateofficerDetails) {
                 return NextResponse.json(
                     { message: "State Officer details not found", success: false },
                     { status: 404 }
                 );
             }
-            const findallsubmissions = await Submission.find({ tenantId: fetchstateofficerDetails.tenantId } as any);
+            console.log("Fetching submissions for tenantId:", fetchstateofficerDetails.tenantId);
+            const findallsubmissions = await Submission.find({ tenantId: fetchstateofficerDetails.tenantId } as any)
+                .populate('loanId', 'loanNumber applicantName')
+                .populate('beneficiaryId', 'name email');
+            console.log("Found submissions:", findallsubmissions.length);
             return NextResponse.json({message:"Submissions fetched successfully by state officer",data:findallsubmissions,success:true});
         }
         console.log("kuch nahi milla");
         return NextResponse.json({message:"Unauthorized access",success:false},{status:403});
     }
     catch(err:any){
+        console.error("Error in GET /api/editsubmission:", err);
         return NextResponse.json(
             {
                 message: "Something went wrong, please try again after some time",
                 success: false,
-                error: err?.message
+                error: err?.message,
+                stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined
             },
             { status: 500 }
         );

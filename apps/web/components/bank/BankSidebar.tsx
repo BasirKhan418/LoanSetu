@@ -11,6 +11,7 @@ import {
   IconBuildingBank,
   IconFileDescription,
   IconUpload,
+  IconClipboardCheck,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -74,6 +75,13 @@ export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
       href: "/bank/bulk-upload",
       icon: (
         <IconCreditCard className="h-5 w-5 shrink-0 text-neutral-700" />
+      ),
+    },
+    {
+      label: "Submissions",
+      href: "/bank/submissions",
+      icon: (
+        <IconClipboardCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {

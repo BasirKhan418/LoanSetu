@@ -61,7 +61,7 @@ export function StateOfficerSidebar({ open, setOpen, officerData }: StateOfficer
       ),
     },
     {
-      label: "Review Submissions",
+      label: "Submissions",
       href: "/stateofficer/submissions",
       icon: (
         <IconClipboardCheck className="h-5 w-5 shrink-0 text-neutral-700" />
