@@ -140,7 +140,7 @@ export default function AddRuleSetPage() {
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch("/api/admin/tenant");
+      const response = await fetch("/api/tenant");
       const data = await response.json();
       if (data.success) {
         setTenants(data.data || []);

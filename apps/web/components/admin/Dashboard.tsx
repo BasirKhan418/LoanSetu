@@ -109,7 +109,13 @@ interface AnalyticsData {
   };
 }
 
-const COLORS = ["#ea580c", "#2563eb", "#16a34a", "#9333ea", "#dc2626", "#ca8a04"];
+const COLORS = ["#f97316", "#3b82f6", "#10b981", "#a855f7", "#ef4444", "#eab308"];
+const STATUS_COLORS = {
+  pending: "#f97316",
+  underReview: "#3b82f6",
+  approved: "#10b981",
+  rejected: "#ef4444"
+};
 
 export function Dashboard({ className }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "users" | "banks" | "officers">("overview");
@@ -128,12 +134,17 @@ export function Dashboard({ className }: DashboardProps) {
     setError("");
     try {
       // Fetch analytics data
-      const analyticsResponse = await fetch("/api/admin/analytics", {
+      const analyticsResponse = await fetch("/api/analytics", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       });
+      
+      if (!analyticsResponse.ok) {
+        throw new Error(`Analytics API returned ${analyticsResponse.status}`);
+      }
+      
       const analyticsData = await analyticsResponse.json();
       
       if (analyticsData.success) {
@@ -142,12 +153,17 @@ export function Dashboard({ className }: DashboardProps) {
 
       // Fetch tenants if needed
       if (activeTab === "tenants" || activeTab === "overview") {
-        const response = await fetch("/api/admin/tenant", {
+        const response = await fetch("/api/tenant", {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
           },
         });
+        
+        if (!response.ok) {
+          throw new Error(`Tenant API returned ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.success) {
@@ -274,6 +290,47 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
           ))}
         </div>
+
+        {/* Financial Summary */}
+        {analytics && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <IconCurrencyRupee className="h-8 w-8 text-emerald-600" />
+                <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full">Total</span>
+              </div>
+              <p className="text-sm text-emerald-700 font-medium">Total Sanction Amount</p>
+              <p className="text-3xl font-bold text-emerald-900 mt-1">
+                {formatCurrency(analytics.loans.totalSanctionAmount)}
+              </p>
+              <p className="text-xs text-emerald-600 mt-2">Across {analytics.loans.total} loans</p>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <IconFileAnalytics className="h-8 w-8 text-blue-600" />
+                <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Average</span>
+              </div>
+              <p className="text-sm text-blue-700 font-medium">Average Loan Amount</p>
+              <p className="text-3xl font-bold text-blue-900 mt-1">
+                {formatCurrency(analytics.loans.averageLoanAmount)}
+              </p>
+              <p className="text-xs text-blue-600 mt-2">Per loan application</p>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <IconFileAnalytics className="h-8 w-8 text-purple-600" />
+                <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-full">AI</span>
+              </div>
+              <p className="text-sm text-purple-700 font-medium">Average Risk Score</p>
+              <p className="text-3xl font-bold text-purple-900 mt-1">
+                {analytics.ai.averageRiskScore.toFixed(1)}
+                <span className="text-xl text-purple-600">/100</span>
+              </p>
+              <p className="text-xs text-purple-600 mt-2">AI-assessed applications</p>
+            </div>
+          </div>
+        )}
+
       {/* Tabs */}
       <div className="mt-1 pt-2 border-t border-neutral-200 flex gap-2 overflow-x-auto pb-2">
           {["overview", "tenants", "users", "banks", "officers"].map((tab) => (
@@ -301,45 +358,84 @@ export function Dashboard({ className }: DashboardProps) {
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
             {/* Loan Status Pie Chart */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6 min-h-[360px]">
-              <h3 className="text-lg font-semibold mb-4">Loan Status Distribution</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-neutral-800">Loan Status Distribution</h3>
+                {analytics && (
+                  <span className="text-xs font-medium text-neutral-600 bg-neutral-100 px-3 py-1 rounded-full">
+                    {analytics.loans.total} Total
+                  </span>
+                )}
+              </div>
               {loading ? (
-                <div className="h-64 flex items-center justify-center">
-                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                <div className="h-80 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading chart...</div>
                 </div>
               ) : analytics ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Pending", value: analytics.loans.byStatus.pending },
-                        { name: "Under Review", value: analytics.loans.byStatus.underReview },
-                        { name: "Approved", value: analytics.loans.byStatus.approved },
-                        { name: "Rejected", value: analytics.loans.byStatus.rejected },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {[0, 1, 2, 3].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Pending", value: analytics.loans.byStatus.pending, color: STATUS_COLORS.pending },
+                          { name: "Under Review", value: analytics.loans.byStatus.underReview, color: STATUS_COLORS.underReview },
+                          { name: "Approved", value: analytics.loans.byStatus.approved, color: STATUS_COLORS.approved },
+                          { name: "Rejected", value: analytics.loans.byStatus.rejected, color: STATUS_COLORS.rejected },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ percent }: any) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ""}
+                        labelLine={false}
+                      >
+                        {[0, 1, 2, 3].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={Object.values(STATUS_COLORS)[index]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: any) => [`${value} loans`, "Count"]}
+                        contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36}
+                        formatter={(value, entry: any) => (
+                          `${value}: ${entry.payload.value}`
+                        )}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Stats Summary Below Chart */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
+                    <div className="text-center p-2 rounded-lg bg-orange-50">
+                      <p className="text-xs text-orange-700 font-medium">Pending</p>
+                      <p className="text-lg font-bold text-orange-900">{analytics.loans.byStatus.pending}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-blue-50">
+                      <p className="text-xs text-blue-700 font-medium">Under Review</p>
+                      <p className="text-lg font-bold text-blue-900">{analytics.loans.byStatus.underReview}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-green-50">
+                      <p className="text-xs text-green-700 font-medium">Approved</p>
+                      <p className="text-lg font-bold text-green-900">{analytics.loans.byStatus.approved}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-red-50">
+                      <p className="text-xs text-red-700 font-medium">Rejected</p>
+                      <p className="text-lg font-bold text-red-900">{analytics.loans.byStatus.rejected}</p>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
               )}
             </div>
 
             {/* Monthly Loan Trend */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6 min-h-[360px]">
-              <h3 className="text-lg font-semibold mb-4">Loan Submissions Trend (6 Months)</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold mb-4 text-neutral-800">Loan Submissions Trend (6 Months)</h3>
               {loading ? (
                 <div className="h-64 flex items-center justify-center">
                   <div className="animate-pulse text-neutral-400">Loading...</div>
@@ -367,8 +463,8 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
 
             {/* Loans by Bank */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Top Banks by Loan Count</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold mb-4 text-neutral-800">Top Banks by Loan Count</h3>
               {loading ? (
                 <div className="h-64 flex items-center justify-center">
                   <div className="animate-pulse text-neutral-400">Loading...</div>
@@ -390,8 +486,8 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
 
             {/* Loans by State */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Loans by State</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold mb-4 text-neutral-800">Loans by State</h3>
               {loading ? (
                 <div className="h-64 flex items-center justify-center">
                   <div className="animate-pulse text-neutral-400">Loading...</div>
@@ -413,8 +509,8 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
 
             {/* Disbursement Mode Distribution */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Disbursement Mode Distribution</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold mb-4 text-neutral-800">Disbursement Mode Distribution</h3>
               {loading ? (
                 <div className="h-64 flex items-center justify-center">
                   <div className="animate-pulse text-neutral-400">Loading...</div>
@@ -449,8 +545,8 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
 
             {/* Recent Loans */}
-            <div className="rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Recent Loan Submissions</h3>
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h3 className="text-lg font-semibold mb-4 text-neutral-800">Recent Loan Submissions</h3>
               {loading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -496,8 +592,8 @@ export function Dashboard({ className }: DashboardProps) {
 
             {/* AI Analytics Dashboard */}
             {analytics && (
-              <div className="lg:col-span-2 rounded-xl border border-neutral-200 bg-white p-6">
-                <h3 className="text-lg font-semibold mb-4">AI Decision Analytics</h3>
+              <div className="lg:col-span-2 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-semibold mb-6 text-neutral-800">AI Decision Analytics</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <ResponsiveContainer width="100%" height={250}>

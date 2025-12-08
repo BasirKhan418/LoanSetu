@@ -88,7 +88,7 @@ export default function TenantsPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/tenant", {
+      const response = await fetch("/api/tenant", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
