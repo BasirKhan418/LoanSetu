@@ -27,7 +27,9 @@ export const GET = async (req: NextRequest) => {
                     { status: 404 }
                 );
             }
-            const findallsubmissions = await Submission.find({ tenantId: fetchbankDetails.tenantId } as any);
+            const findallsubmissions = await Submission.find({ tenantId: fetchbankDetails.tenantId } as any)
+                .populate('loanId', 'loanNumber applicantName')
+                .populate('beneficiaryId', 'name email');
             return NextResponse.json({message:"Submissions fetched successfully by bank",data:findallsubmissions,success:true});
         }
         else if(validation.data?.type==="stateofficer"){
@@ -39,7 +41,9 @@ export const GET = async (req: NextRequest) => {
                     { status: 404 }
                 );
             }
-            const findallsubmissions = await Submission.find({ tenantId: fetchstateofficerDetails.tenantId } as any);
+            const findallsubmissions = await Submission.find({ tenantId: fetchstateofficerDetails.tenantId } as any)
+                .populate('loanId', 'loanNumber applicantName')
+                .populate('beneficiaryId', 'name email');
             return NextResponse.json({message:"Submissions fetched successfully by state officer",data:findallsubmissions,success:true});
         }
         console.log("kuch nahi milla");
