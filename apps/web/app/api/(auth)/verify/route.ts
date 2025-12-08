@@ -7,9 +7,12 @@ import { cookies } from "next/headers";
 import StateOfficer from "../../../../models/StateOfficer";
 import Bank from "../../../../models/Bank";
 import User from "../../../../models/User";
+import ConnectDb from "../../../../middleware/connectDb";
 export const GET = async()=>{
     try{
+        await ConnectDb();
         const cookieStore = await cookies();
+
         const token = cookieStore.get("token")?.value;
         console.log("Token from cookies:", token);
         if(!token){
@@ -18,6 +21,7 @@ export const GET = async()=>{
         const data = verifyAdminToken(token);
         console.log("Verified token data:", data);
         if(!data.success){
+
             return NextResponse.json({message:"Invalid token",success:false})
         }
         if(data.data?.type=="admin"){
@@ -40,6 +44,7 @@ export const GET = async()=>{
         return NextResponse.json({message:"Unauthorized access or no method allowed for this",success:false})
     }
     catch(err){
+        console.error("Error in verify route:", err);
         return NextResponse.json({message:"something went wrong please try again after some time",success:false})
     }
 }

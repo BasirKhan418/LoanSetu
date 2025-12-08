@@ -26,12 +26,6 @@ export default function AdminDashboardPage() {
 
   const validateAdminSession = async () => {
     try {
-      const token = getCookie("token");
-      
-      if (!token) {
-        router.push("/admin/signin");
-        return;
-      }
 
       const response = await fetch("/api/verify", {
         method: "GET",
@@ -42,9 +36,10 @@ export default function AdminDashboardPage() {
       });
 
       const data = await response.json();
+      console.log("Verify response data:", data);
 
       if (!data.success || data.type !== "admin") {
-        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+        
         router.push("/admin/signin");
         return;
       }

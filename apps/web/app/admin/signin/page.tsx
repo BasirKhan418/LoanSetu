@@ -172,7 +172,7 @@ export default function StateAdminSignIn() {
           });
           
           const verifyData = await verifyResponse.json();
-          
+          console.log("Verify response data:", verifyData);
           if (verifyData.success && verifyData.type === "admin") {
             setTimeout(() => {
               router.push("/admin/dashboard");
