@@ -4,6 +4,7 @@ import Navbar from "../components/navbar";
 import { FeatureCard } from "../components/ui/feature-card";
 import { BackgroundGradient } from "../components/ui/background-gradient";
 import { PixelatedCanvas } from "../components/ui/pixelated-canvas";
+import { FollowerPointerCard } from "../components/ui/following-pointer";
 
 export default function Home() {
   return (
@@ -412,6 +413,124 @@ export default function Home() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive Card Showcase with FollowerPointer */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-2 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm mb-4">
+              EXPLORE FEATURES
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-6">
+              Interactive Loan Verification
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Move your cursor to explore our intelligent verification system
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FollowerPointerCard
+              title={
+                <div className="flex items-center space-x-2">
+                  <div className="h-5 w-5 rounded-full bg-orange-500"></div>
+                  <p className="font-semibold">AI Detection</p>
+                </div>
+              }
+            >
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-orange-100 bg-white transition duration-200 hover:shadow-xl">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-tl-lg rounded-tr-lg bg-gradient-to-br from-orange-50 to-orange-100">
+                  <div className="flex h-full items-center justify-center">
+                    <svg className="h-20 w-20 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h2 className="my-4 text-lg font-bold text-zinc-700">
+                    Automated Fraud Detection
+                  </h2>
+                  <h2 className="my-4 text-sm font-normal text-zinc-500">
+                    AI analyzes geo-tagged images to detect tampering, duplicate submissions, and suspicious patterns in real-time.
+                  </h2>
+                  <div className="mt-10 flex flex-row items-center justify-between">
+                    <span className="text-sm text-gray-500">99.2% Accuracy</span>
+                    <div className="relative z-10 block rounded-xl bg-orange-600 px-6 py-2 text-xs font-bold text-white">
+                      Learn More
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </FollowerPointerCard>
+
+            <FollowerPointerCard
+              title={
+                <div className="flex items-center space-x-2">
+                  <div className="h-5 w-5 rounded-full bg-blue-500"></div>
+                  <p className="font-semibold">Instant Verification</p>
+                </div>
+              }
+            >
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-blue-100 bg-white transition duration-200 hover:shadow-xl">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-tl-lg rounded-tr-lg bg-gradient-to-br from-blue-50 to-blue-100">
+                  <div className="flex h-full items-center justify-center">
+                    <svg className="h-20 w-20 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h2 className="my-4 text-lg font-bold text-zinc-700">
+                    Real-Time Processing
+                  </h2>
+                  <h2 className="my-4 text-sm font-normal text-zinc-500">
+                    Submit asset proof and receive instant verification. No waiting days or weeks for field officer visits.
+                  </h2>
+                  <div className="mt-10 flex flex-row items-center justify-between">
+                    <span className="text-sm text-gray-500">2 min avg</span>
+                    <div className="relative z-10 block rounded-xl bg-blue-600 px-6 py-2 text-xs font-bold text-white">
+                      Learn More
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </FollowerPointerCard>
+
+            <FollowerPointerCard
+              title={
+                <div className="flex items-center space-x-2">
+                  <div className="h-5 w-5 rounded-full bg-green-500"></div>
+                  <p className="font-semibold">Secure Ledger</p>
+                </div>
+              }
+            >
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-green-100 bg-white transition duration-200 hover:shadow-xl">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-tl-lg rounded-tr-lg bg-gradient-to-br from-green-50 to-green-100">
+                  <div className="flex h-full items-center justify-center">
+                    <svg className="h-20 w-20 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h2 className="my-4 text-lg font-bold text-zinc-700">
+                    Blockchain Audit Trail
+                  </h2>
+                  <h2 className="my-4 text-sm font-normal text-zinc-500">
+                    Every action is cryptographically recorded in an immutable ledger, ensuring complete transparency and accountability.
+                  </h2>
+                  <div className="mt-10 flex flex-row items-center justify-between">
+                    <span className="text-sm text-gray-500">100% Traceable</span>
+                    <div className="relative z-10 block rounded-xl bg-green-600 px-6 py-2 text-xs font-bold text-white">
+                      Learn More
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </FollowerPointerCard>
           </div>
         </div>
       </section>
