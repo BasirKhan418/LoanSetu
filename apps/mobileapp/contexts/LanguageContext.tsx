@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Language {
   code: string;
@@ -10,10 +11,9 @@ interface Language {
 interface LanguageContextType {
   currentLanguage: Language;
   availableLanguages: Language[];
-  setLanguage: (language: Language) => void;
+  setLanguage: (language: Language) => Promise<void>;
   isLanguageSelected: boolean;
-  setUserLanguage: (userId: string, languageCode: string) => void;
-  initializeUserLanguage: (userId: string, userLanguageCode?: string) => void;
+  loadLanguage: () => Promise<void>;
 }
 
 const languages: Language[] = [
@@ -44,39 +44,36 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [currentLanguage, setCurrentLanguage] = useState<Language>(languages[0]); // Default to English
   const [isLanguageSelected, setIsLanguageSelected] = useState(false);
 
-  // Initialize language for a logged-in user
-  const initializeUserLanguage = (userId: string, userLanguageCode?: string) => {
-    if (userLanguageCode) {
-      const language = languages.find(lang => lang.code === userLanguageCode);
-      if (language) {
-        setCurrentLanguage(language);
-        setIsLanguageSelected(true);
-      } else {
-        // Invalid language code, reset to default
-        setCurrentLanguage(languages[0]);
-        setIsLanguageSelected(false);
+  useEffect(() => {
+    loadLanguage();
+  }, []);
+
+  // Load language from AsyncStorage
+  const loadLanguage = async () => {
+    try {
+      const storedLanguageCode = await AsyncStorage.getItem('languageCode');
+      
+      if (storedLanguageCode) {
+        const language = languages.find(lang => lang.code === storedLanguageCode);
+        if (language) {
+          setCurrentLanguage(language);
+          setIsLanguageSelected(true);
+        }
       }
-    } else {
-      // No language selected for this user
-      setCurrentLanguage(languages[0]);
-      setIsLanguageSelected(false);
+    } catch (error) {
+      console.error('Failed to load language:', error);
     }
   };
 
-  // Set language for current session (will be saved to backend)
-  const setLanguage = (language: Language) => {
-    setCurrentLanguage(language);
-    setIsLanguageSelected(true);
-  };
-
-  // This function will be called when language needs to be saved to backend
-  const setUserLanguage = (userId: string, languageCode: string) => {
-    // This will be implemented when backend is ready
-    // For now, just update local state
-    const language = languages.find(lang => lang.code === languageCode);
-    if (language) {
+  // Set language and save to AsyncStorage
+  const setLanguage = async (language: Language) => {
+    try {
+      await AsyncStorage.setItem('languageCode', language.code);
       setCurrentLanguage(language);
       setIsLanguageSelected(true);
+    } catch (error) {
+      console.error('Failed to save language:', error);
+      throw error;
     }
   };
 
@@ -87,8 +84,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         availableLanguages: languages,
         setLanguage,
         isLanguageSelected,
-        setUserLanguage,
-        initializeUserLanguage,
+        loadLanguage,
       }}
     >
       {children}

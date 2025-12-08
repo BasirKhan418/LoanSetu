@@ -47,6 +47,30 @@ export interface MediaFile {
   createdAt: string;
 }
 
+export interface UserProfile {
+  id: number;
+  userId: string;          // Backend _id
+  phone: string;
+  name: string;
+  email?: string;
+  img?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+  homeLat?: number;
+  homeLng?: number;
+  tenantId?: string;
+  isActive: boolean;
+  isVerified: boolean;
+  lastVerifiedAt?: string; // When token was last verified with backend
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class Database {
   private db: SQLite.SQLiteDatabase | null = null;
 
@@ -63,6 +87,33 @@ export class Database {
 
   private async createTables() {
     if (!this.db) throw new Error('Database not initialized');
+
+    // Create users table (single row for current user)
+    await this.db.execAsync(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY CHECK(id = 1),
+        userId TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        name TEXT NOT NULL,
+        email TEXT,
+        img TEXT,
+        addressLine1 TEXT,
+        addressLine2 TEXT,
+        village TEXT,
+        block TEXT,
+        district TEXT,
+        state TEXT,
+        pincode TEXT,
+        homeLat REAL,
+        homeLng REAL,
+        tenantId TEXT,
+        isActive INTEGER DEFAULT 1,
+        isVerified INTEGER DEFAULT 0,
+        lastVerifiedAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+    `);
 
     // Create beneficiaries table
     await this.db.execAsync(`
@@ -134,6 +185,115 @@ export class Database {
   getDatabase(): SQLite.SQLiteDatabase {
     if (!this.db) throw new Error('Database not initialized');
     return this.db;
+  }
+
+  // User Profile Methods
+  async saveUser(userData: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>) {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const existing = await this.getUser();
+
+    if (existing) {
+      // Update existing user
+      await this.db.runAsync(
+        `UPDATE users SET 
+          userId = ?, phone = ?, name = ?, email = ?, img = ?,
+          addressLine1 = ?, addressLine2 = ?, village = ?, block = ?,
+          district = ?, state = ?, pincode = ?, homeLat = ?, homeLng = ?,
+          tenantId = ?, isActive = ?, isVerified = ?, lastVerifiedAt = ?,
+          updatedAt = ?
+        WHERE id = 1`,
+        [
+          userData.userId, userData.phone, userData.name, userData.email || null,
+          userData.img || null, userData.addressLine1 || null, userData.addressLine2 || null,
+          userData.village || null, userData.block || null, userData.district || null,
+          userData.state || null, userData.pincode || null, userData.homeLat || null,
+          userData.homeLng || null, userData.tenantId || null,
+          userData.isActive ? 1 : 0, userData.isVerified ? 1 : 0,
+          userData.lastVerifiedAt || null, now
+        ]
+      );
+    } else {
+      // Insert new user
+      await this.db.runAsync(
+        `INSERT INTO users (
+          id, userId, phone, name, email, img, addressLine1, addressLine2,
+          village, block, district, state, pincode, homeLat, homeLng,
+          tenantId, isActive, isVerified, lastVerifiedAt, createdAt, updatedAt
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userData.userId, userData.phone, userData.name, userData.email || null,
+          userData.img || null, userData.addressLine1 || null, userData.addressLine2 || null,
+          userData.village || null, userData.block || null, userData.district || null,
+          userData.state || null, userData.pincode || null, userData.homeLat || null,
+          userData.homeLng || null, userData.tenantId || null,
+          userData.isActive ? 1 : 0, userData.isVerified ? 1 : 0,
+          userData.lastVerifiedAt || null, now, now
+        ]
+      );
+    }
+  }
+
+  async getUser(): Promise<UserProfile | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const row = await this.db.getFirstAsync<any>('SELECT * FROM users WHERE id = 1');
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      userId: row.userId,
+      phone: row.phone,
+      name: row.name,
+      email: row.email,
+      img: row.img,
+      addressLine1: row.addressLine1,
+      addressLine2: row.addressLine2,
+      village: row.village,
+      block: row.block,
+      district: row.district,
+      state: row.state,
+      pincode: row.pincode,
+      homeLat: row.homeLat,
+      homeLng: row.homeLng,
+      tenantId: row.tenantId,
+      isActive: row.isActive === 1,
+      isVerified: row.isVerified === 1,
+      lastVerifiedAt: row.lastVerifiedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async updateUser(updates: Partial<Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>>) {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key === 'isActive' || key === 'isVerified') {
+        fields.push(`${key} = ?`);
+        values.push(value ? 1 : 0);
+      } else if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    fields.push('updatedAt = ?');
+    values.push(new Date().toISOString());
+
+    const query = `UPDATE users SET ${fields.join(', ')} WHERE id = 1`;
+    await this.db.runAsync(query, values);
+  }
+
+  async deleteUser() {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.runAsync('DELETE FROM users WHERE id = 1');
   }
 
   async close() {

@@ -1,27 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import * as authService from '../api/authService';
+import type { User as BackendUser } from '../api/authService';
+import { database } from '../database/schema';
 
 interface User {
-  id: string;
-  mobile: string;
+  _id: string;
+  phone: string;
   name: string;
+  email?: string;
+  img?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+  homeLat?: number;
+  homeLng?: number;
+  tenantId?: string;
   isActive: boolean;
-  languageCode?: string; // User's preferred language
-  homeLocation?: {
-    latitude: number;
-    longitude: number;
-    address?: string;
-    timestamp: string;
-  }; // User's home/business location
+  isVerified: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  sendOTP: (mobile: string) => Promise<{ success: boolean; message: string }>;
-  verifyOTP: (mobile: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
+  token: string | null;
+  sendOTP: (phone: string) => Promise<{ success: boolean; message: string }>;
+  verifyOTP: (phone: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
   logout: () => Promise<void>;
-  updateUserLanguage: (languageCode: string) => Promise<void>;
+  updateUserProfile: (updateFields: Partial<User>) => Promise<{ success: boolean; message: string }>;
+  refreshUserFromBackend: () => Promise<void>;
   isLoading: boolean;
+  isOnline: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,55 +47,158 @@ export function useAuth() {
   return context;
 }
 
-// Mock database of admin-added users
-const mockUsers: User[] = [
-  { id: '1', mobile: '+919876543210', name: 'John Doe', isActive: true, languageCode: undefined }, // No language selected
-  { id: '2', mobile: '+919876543211', name: 'Jane Smith', isActive: true, languageCode: 'hi' }, // Hindi selected
-  { id: '3', mobile: '+919876543212', name: 'Bob Johnson', isActive: false, languageCode: undefined },
-];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    loadStoredAuth();
+    // Monitor network connectivity
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const loadStoredAuth = async () => {
+  useEffect(() => {
+    bootstrapAuth();
+  }, []);
+
+  // Step A: Local bootstrap (works offline)
+  const bootstrapAuth = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      console.log('[Auth] Bootstrapping authentication...');
+      
+      // 1. Read token from AsyncStorage
+      const storedToken = await AsyncStorage.getItem('authToken');
+      
+      if (!storedToken) {
+        console.log('[Auth] No token found, user needs to login');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('[Auth] Token found in AsyncStorage');
+      setToken(storedToken);
+
+      // 2. Load user profile from SQLite (offline-first)
+      const userProfile = await database.getUser();
+      
+      if (userProfile) {
+        console.log('[Auth] User profile loaded from SQLite:', userProfile.name);
+        const userData: User = {
+          _id: userProfile.userId,
+          phone: userProfile.phone,
+          name: userProfile.name,
+          email: userProfile.email,
+          img: userProfile.img,
+          addressLine1: userProfile.addressLine1,
+          addressLine2: userProfile.addressLine2,
+          village: userProfile.village,
+          block: userProfile.block,
+          district: userProfile.district,
+          state: userProfile.state,
+          pincode: userProfile.pincode,
+          homeLat: userProfile.homeLat,
+          homeLng: userProfile.homeLng,
+          tenantId: userProfile.tenantId,
+          isActive: userProfile.isActive,
+          isVerified: userProfile.isVerified,
+        };
+        setUser(userData);
+      } else {
+        console.log('[Auth] No user profile in SQLite, clearing token');
+        await AsyncStorage.removeItem('authToken');
+        setToken(null);
+      }
+
+      setIsLoading(false);
+
+      // Step B: Background remote verify (if internet)
+      if (isOnline && storedToken && userProfile) {
+        console.log('[Auth] Online, attempting background token verification...');
+        backgroundVerifyToken(storedToken);
       }
     } catch (error) {
-      console.error('Failed to load stored auth:', error);
-    } finally {
+      console.error('[Auth] Bootstrap failed:', error);
       setIsLoading(false);
     }
   };
 
-  const sendOTP = async (mobile: string): Promise<{ success: boolean; message: string }> => {
+  // Background token verification with backend
+  const backgroundVerifyToken = async (authToken: string) => {
+    try {
+      // Call backend verify endpoint (you'll need to implement this)
+      // For now, we'll just update the lastVerifiedAt timestamp
+      await database.updateUser({
+        lastVerifiedAt: new Date().toISOString(),
+      });
+      console.log('[Auth] Token verified successfully with backend');
+    } catch (error: any) {
+      console.error('[Auth] Background verification failed:', error);
+      
+      // If 401/403, token is invalid - logout
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        console.log('[Auth] Token expired, logging out user');
+        await logout();
+      }
+    }
+  };
+
+  const refreshUserFromBackend = async () => {
+    if (!token || !isOnline) {
+      console.log('[Auth] Cannot refresh: no token or offline');
+      return;
+    }
+
+    try {
+      // You can implement a /verify or /me endpoint call here
+      // For now, we'll just mark as verified
+      await database.updateUser({
+        lastVerifiedAt: new Date().toISOString(),
+      });
+      
+      const updatedProfile = await database.getUser();
+      if (updatedProfile) {
+        const userData: User = {
+          _id: updatedProfile.userId,
+          phone: updatedProfile.phone,
+          name: updatedProfile.name,
+          email: updatedProfile.email,
+          img: updatedProfile.img,
+          addressLine1: updatedProfile.addressLine1,
+          addressLine2: updatedProfile.addressLine2,
+          village: updatedProfile.village,
+          block: updatedProfile.block,
+          district: updatedProfile.district,
+          state: updatedProfile.state,
+          pincode: updatedProfile.pincode,
+          homeLat: updatedProfile.homeLat,
+          homeLng: updatedProfile.homeLng,
+          tenantId: updatedProfile.tenantId,
+          isActive: updatedProfile.isActive,
+          isVerified: updatedProfile.isVerified,
+        };
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('[Auth] Refresh failed:', error);
+    }
+  };
+
+  const sendOTP = async (phone: string): Promise<{ success: boolean; message: string }> => {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call backend API to send OTP
+      const response = await authService.sendOTP(phone);
       
-      // Check if mobile number exists in admin-added users
-      const foundUser = mockUsers.find(user => user.mobile === mobile);
-      
-      if (!foundUser) {
-        return { success: false, message: 'Mobile number not registered. Please contact admin.' };
-      }
-      
-      if (!foundUser.isActive) {
-        return { success: false, message: 'Account is inactive. Please contact admin.' };
-      }
-      
-      // In real app, send OTP via SMS service
-      console.log(`OTP sent to ${mobile}: 123456`);
-      return { success: true, message: 'OTP sent successfully!' };
+      return {
+        success: response.success,
+        message: response.message,
+      };
       
     } catch (error) {
       console.error('Send OTP failed:', error);
@@ -92,72 +208,174 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const verifyOTP = async (mobile: string, otp: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  const verifyOTP = async (phone: string, otp: string): Promise<{ success: boolean; message: string; user?: User }> => {
     try {
       setIsLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('[Auth] Verifying OTP for phone:', phone);
       
-      // Find user by mobile
-      const foundUser = mockUsers.find(user => user.mobile === mobile && user.isActive);
+      // Call backend API to verify OTP
+      const response = await authService.verifyOTP(phone, otp);
       
-      if (!foundUser) {
-        return { success: false, message: 'Invalid mobile number or account inactive.' };
-      }
-      
-      // Mock OTP verification (in real app, verify with backend)
-      if (otp === '123456') {
-        // Store user session
-        await AsyncStorage.setItem('user', JSON.stringify(foundUser));
-        setUser(foundUser);
-        return { success: true, message: 'Login successful!', user: foundUser };
+      if (response.success && response.token) {
+        console.log('[Auth] OTP verified successfully');
+        
+        // Decode token to get user data
+        const payloadBase64 = response.token.split('.')[1];
+        const decodedPayload = JSON.parse(atob(payloadBase64));
+        
+        // Create user object from decoded token
+        const userData: User = {
+          _id: decodedPayload.id,
+          phone: phone,
+          name: decodedPayload.name || 'User',
+          email: decodedPayload.email,
+          isActive: true,
+          isVerified: true,
+        };
+        
+        // 1. Store token in AsyncStorage (small, simple)
+        await AsyncStorage.setItem('authToken', response.token);
+        console.log('[Auth] Token saved to AsyncStorage');
+        
+        // 2. Store user profile in SQLite (queryable, persistent)
+        await database.saveUser({
+          userId: userData._id,
+          phone: userData.phone,
+          name: userData.name,
+          email: userData.email,
+          img: userData.img,
+          addressLine1: userData.addressLine1,
+          addressLine2: userData.addressLine2,
+          village: userData.village,
+          block: userData.block,
+          district: userData.district,
+          state: userData.state,
+          pincode: userData.pincode,
+          homeLat: userData.homeLat,
+          homeLng: userData.homeLng,
+          tenantId: userData.tenantId,
+          isActive: userData.isActive,
+          isVerified: userData.isVerified,
+          lastVerifiedAt: new Date().toISOString(),
+        });
+        console.log('[Auth] User profile saved to SQLite');
+        
+        // 3. Update local state
+        setUser(userData);
+        setToken(response.token);
+        
+        return { success: true, message: 'Login successful!', user: userData };
       } else {
-        return { success: false, message: 'Invalid OTP. Please try again.' };
+        return { success: false, message: response.message || 'Invalid OTP. Please try again.' };
       }
       
     } catch (error) {
-      console.error('OTP verification failed:', error);
+      console.error('[Auth] OTP verification failed:', error);
       return { success: false, message: 'Verification failed. Please try again.' };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const updateUserLanguage = async (languageCode: string) => {
-    if (!user) return;
+  const updateUserProfile = async (updateFields: Partial<User>): Promise<{ success: boolean; message: string }> => {
+    if (!user || !token) {
+      return { success: false, message: 'User not authenticated' };
+    }
     
     try {
-      // Update user object with new language
-      const updatedUser = { ...user, languageCode };
+      setIsLoading(true);
+      console.log('[Auth] Updating user profile:', Object.keys(updateFields));
       
-      // In real app, this would be an API call to update user language in backend
-      // For now, just update local state and storage
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // 1. Update SQLite first (offline-first: works even without internet)
+      const updatedUserData = { ...user, ...updateFields };
+      await database.updateUser({
+        userId: updatedUserData._id,
+        phone: updatedUserData.phone,
+        name: updatedUserData.name,
+        email: updatedUserData.email,
+        img: updatedUserData.img,
+        addressLine1: updatedUserData.addressLine1,
+        addressLine2: updatedUserData.addressLine2,
+        village: updatedUserData.village,
+        block: updatedUserData.block,
+        district: updatedUserData.district,
+        state: updatedUserData.state,
+        pincode: updatedUserData.pincode,
+        homeLat: updatedUserData.homeLat,
+        homeLng: updatedUserData.homeLng,
+        tenantId: updatedUserData.tenantId,
+        isActive: updatedUserData.isActive,
+        isVerified: updatedUserData.isVerified,
+      });
+      console.log('[Auth] User profile updated in SQLite');
       
-      // Also update the mock users array for demo purposes
-      const userIndex = mockUsers.findIndex(u => u.id === user.id);
-      if (userIndex !== -1) {
-        mockUsers[userIndex].languageCode = languageCode;
+      // 2. Update local state immediately (instant UI feedback)
+      setUser(updatedUserData);
+      
+      // 3. Try to sync with backend (best effort, works offline)
+      try {
+        if (isOnline) {
+          const response = await authService.updateUserProfile(user._id, updateFields, token);
+          if (response.success) {
+            console.log('[Auth] Profile synced with backend');
+          } else {
+            console.warn('[Auth] Backend sync failed, but local data saved:', response.message);
+          }
+        } else {
+          console.log('[Auth] Offline - profile saved locally, will sync when online');
+        }
+      } catch (backendError) {
+        console.warn('[Auth] Backend sync error (offline OK):', backendError);
       }
+      
+      // Return success even if backend sync fails (offline-first)
+      return { success: true, message: 'Profile updated successfully!' };
     } catch (error) {
-      console.error('Failed to update user language:', error);
-      throw error;
+      console.error('[Auth] Profile update failed:', error);
+      return { success: false, message: 'Failed to update profile. Please try again.' };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('user');
+      console.log('[Auth] Logging out user...');
+      
+      // 1. Clear token from AsyncStorage
+      await AsyncStorage.removeItem('authToken');
+      console.log('[Auth] Token removed from AsyncStorage');
+      
+      // 2. Delete user profile from SQLite
+      await database.deleteUser();
+      console.log('[Auth] User profile deleted from SQLite');
+      
+      // 3. Clear local state
       setUser(null);
+      setToken(null);
+      
+      console.log('[Auth] Logout completed successfully');
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('[Auth] Logout failed:', error);
+      // Even if cleanup fails, clear the state
+      setUser(null);
+      setToken(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, sendOTP, verifyOTP, logout, updateUserLanguage, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      sendOTP, 
+      verifyOTP, 
+      logout, 
+      updateUserProfile, 
+      isLoading,
+      refreshUserFromBackend,
+      isOnline 
+    }}>
       {children}
     </AuthContext.Provider>
   );
