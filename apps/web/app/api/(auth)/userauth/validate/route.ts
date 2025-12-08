@@ -27,6 +27,7 @@ export const POST = async (req: NextRequest) => {
         return NextResponse.json({message:"Invalid OTP",success:false})
     }
     const token = jwt.sign({id:checkuserexistornot._id,type:"user",name:checkuserexistornot.name,email:checkuserexistornot.email},process.env.JWT_SECRET!);
+    await (User as any).findByIdAndUpdate(checkuserexistornot._id,{isActive: true} as any);
     return NextResponse.json({message:"User verified successfully",success:true,token:token})
 
     }
