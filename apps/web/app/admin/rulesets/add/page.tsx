@@ -1,4 +1,4 @@
-c"use client";
+"use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrowLeft, IconDeviceFloppy } from "@tabler/icons-react";
@@ -81,12 +81,10 @@ export default function AddRuleSetPage() {
   const [invoiceOcrMatchAmount, setInvoiceOcrMatchAmount] = useState(true);
   const [invoiceOcrMatchDate, setInvoiceOcrMatchDate] = useState(true);
 
-  // Asset Rules
   const [assetTypes, setAssetTypes] = useState("TRACTOR");
   const [classifierRequired, setClassifierRequired] = useState(true);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.80);
 
-  // Risk Weights
   const [riskWeights, setRiskWeights] = useState({
     GPS_MISMATCH: 25,
     EXIF_MISSING: 20,
