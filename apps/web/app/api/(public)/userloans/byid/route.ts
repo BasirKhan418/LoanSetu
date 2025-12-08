@@ -5,11 +5,11 @@ import Loans from "../../../../../models/Loans";
 import User from "../../../../../models/User";
 import LoanDetails from "../../../../../models/LoanDetails";
 import Rullset from "../../../../../models/Rullset";
-
-
 export const GET= async (req: NextRequest) => {
     try{
         await ConnectDb();
+        void LoanDetails;
+        void User;  
         const url = new URL(req.url);
         const {searchParams} =url;
         const id= searchParams.get("id");
@@ -20,8 +20,6 @@ export const GET= async (req: NextRequest) => {
         
         const loans = await (Loans as any).findById(id) .populate({ path: "beneficiaryId", model: "User" })
   .populate({ path: "loanDetailsId", model: "LoanDetails" })
-  .populate({ path: "createdByBankOfficerId", model: "Bank" })
-  .populate({ path: "bankid", model: "Bank" });
         console.log("Fetched loans:", loans);   
         if(!loans||loans.length===0){
             return NextResponse.json({ message: "No loans found for this user", success: false });
