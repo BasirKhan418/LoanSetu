@@ -64,6 +64,7 @@ export const POST = async (request: NextRequest) => {
             await redis.set(`bank-otp-${reqBody.ifsc}`, generateotp, "EX", 5 * 60);
             //send email or sms with otp here
             await sendBankOfficerOtpEmail({ email: bank.contactEmail!, otp: generateotp, name: bank.contactName!, bankName: `${bank.name} - ${bank.branchName}` });
+            console.log("Generated OTP for bank officer:", generateotp);
             return NextResponse.json({message: "OTP generated successfully", success:true}, {status: 200});
 
         }
