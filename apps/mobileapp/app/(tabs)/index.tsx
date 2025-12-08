@@ -20,6 +20,7 @@ import {
   Dimensions,
   Image,
   Platform,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -55,6 +56,7 @@ export default function DashboardScreen() {
   const { currentLanguage } = useLanguage();
   const insets = useSafeAreaInsets();
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Show location popup on mount if location not set
   useEffect(() => {
@@ -67,28 +69,35 @@ export default function DashboardScreen() {
   }, [hasSetLocation, showLocationPopup]);
 
   // Fetch loans from API
+  const fetchLoans = async () => {
+    if (!user?.phone) {
+      return;
+    }
+
+    try {
+      console.log('[Dashboard] Fetching loans for:', user.phone);
+      const response = await loansService.getUserLoans(user.phone);
+      
+      if (response.success && response.data) {
+        console.log('[Dashboard] Loans fetched:', response.data.length);
+        setLoans(response.data);
+      } else {
+        console.error('[Dashboard] Failed to fetch loans:', response.message);
+      }
+    } catch (error) {
+      console.error('[Dashboard] Error fetching loans:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchLoans();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchLoans = async () => {
-      if (!user?.phone) {
-        return;
-      }
-
-      try {
-        console.log('[Dashboard] Fetching loans for:', user.phone);
-        const response = await loansService.getUserLoans(user.phone);
-        
-        if (response.success && response.data) {
-          console.log('[Dashboard] Loans fetched:', response.data.length);
-          setLoans(response.data);
-        } else {
-          console.error('[Dashboard] Failed to fetch loans:', response.message);
-        }
-      } catch (error) {
-        console.error('[Dashboard] Error fetching loans:', error);
-      }
-    };
-
     fetchLoans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
   const tabBarHeight = Platform.OS === 'ios' 
@@ -188,6 +197,14 @@ export default function DashboardScreen() {
           style={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#FC8019']}
+              tintColor="#FC8019"
+            />
+          }
         >
           {/* Stats Cards */}
           <View style={styles.statsContainer}>

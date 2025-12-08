@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -38,37 +39,48 @@ export default function ProfileScreen() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
   
   // Fetch loans from API
+  const fetchLoans = async () => {
+    if (!user?.phone) {
+      setIsLoadingLoans(false);
+      return;
+    }
+
+    try {
+      console.log('[Profile] Fetching loans for:', user.phone);
+      const response = await loansService.getUserLoans(user.phone);
+      
+      if (response.success && response.data) {
+        console.log('[Profile] Loans fetched:', response.data.length);
+        setLoans(response.data.slice(0, 3)); // Show top 3 loans
+      } else {
+        console.error('[Profile] Failed to fetch loans:', response.message);
+      }
+    } catch (error) {
+      console.error('[Profile] Error fetching loans:', error);
+    } finally {
+      setIsLoadingLoans(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchLoans(),
+      refreshUserFromBackend()
+    ]);
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchLoans = async () => {
-      if (!user?.phone) {
-        setIsLoadingLoans(false);
-        return;
-      }
-
-      try {
-        console.log('[Profile] Fetching loans for:', user.phone);
-        const response = await loansService.getUserLoans(user.phone);
-        
-        if (response.success && response.data) {
-          console.log('[Profile] Loans fetched:', response.data.length);
-          setLoans(response.data.slice(0, 3)); // Show top 3 loans
-        } else {
-          console.error('[Profile] Failed to fetch loans:', response.message);
-        }
-      } catch (error) {
-        console.error('[Profile] Error fetching loans:', error);
-      } finally {
-        setIsLoadingLoans(false);
-      }
-    };
-
     fetchLoans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
   const handleLanguageSelect = (language: any) => {
@@ -177,6 +189,14 @@ export default function ProfileScreen() {
         style={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#FC8019']}
+            tintColor="#FC8019"
+          />
+        }
       >
         {/* Loan Information Cards - Horizontal Scroll */}
         <View style={styles.sectionContainer}>

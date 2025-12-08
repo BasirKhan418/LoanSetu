@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -30,37 +31,45 @@ export default function ApplicationsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
 
   // Fetch loans from API
+  const fetchLoans = async () => {
+    if (!user?.phone) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('[Applications] Fetching loans for:', user.phone);
+      const response = await loansService.getUserLoans(user.phone);
+      
+      if (response.success && response.data) {
+        console.log('[Applications] Loans fetched:', response.data.length);
+        setLoans(response.data);
+      } else {
+        console.error('[Applications] Failed to fetch loans:', response.message);
+      }
+    } catch (error) {
+      console.error('[Applications] Error fetching loans:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchLoans();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchLoans = async () => {
-      if (!user?.phone) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        console.log('[Applications] Fetching loans for:', user.phone);
-        const response = await loansService.getUserLoans(user.phone);
-        
-        if (response.success && response.data) {
-          console.log('[Applications] Loans fetched:', response.data.length);
-          setLoans(response.data);
-        } else {
-          console.error('[Applications] Failed to fetch loans:', response.message);
-        }
-      } catch (error) {
-        console.error('[Applications] Error fetching loans:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLoans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
   const filteredLoans = loans.filter(loan =>
@@ -118,6 +127,14 @@ export default function ApplicationsScreen() {
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#FC8019']}
+            tintColor="#FC8019"
+          />
+        }
       >
         <View style={styles.loansContainer}>
           {isLoading ? (
