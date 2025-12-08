@@ -218,7 +218,7 @@ export default function BankOfficerSignIn() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/30">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50/30">
       <Navbar />
       
       <section className="px-4 mt-5 py-4 sm:px-6 lg:px-8 lg:py-6">
@@ -250,11 +250,11 @@ export default function BankOfficerSignIn() {
                     </button>
                   )}
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 border border-purple-200">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 border border-orange-200">
                       {showOtpField ? (
-                        <Shield className="h-5 w-5 text-purple-600" />
+                        <Shield className="h-5 w-5 text-orange-600" />
                       ) : (
-                        <Mail className="h-5 w-5 text-purple-600" />
+                        <Mail className="h-5 w-5 text-orange-600" />
                       )}
                     </div>
                     <div>
@@ -310,7 +310,7 @@ export default function BankOfficerSignIn() {
 
                       <button
                         onClick={handleSendOtp}
-                        className="mb-4 h-11 w-full rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+                        className="mb-4 h-11 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                         type="button"
                         disabled={loading}
                       >
@@ -349,7 +349,7 @@ export default function BankOfficerSignIn() {
                               onKeyDown={(e) => handleOtpKeyDown(index, e)}
                               onPaste={index === 0 ? handleOtpPaste : undefined}
                               disabled={loading}
-                              className="w-12 h-14 text-center text-xl font-semibold border-2 border-neutral-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+                              className="w-12 h-14 text-center text-xl font-semibold border-2 border-neutral-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white"
                               autoComplete="off"
                             />
                           ))}
@@ -357,7 +357,7 @@ export default function BankOfficerSignIn() {
                       </div>
 
                       <button
-                        className="mb-3 h-11 w-full rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+                        className="mb-3 h-11 w-full rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 font-semibold text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                         type="submit"
                         disabled={loading || !validateOtp(otp)}
                       >
@@ -393,7 +393,7 @@ export default function BankOfficerSignIn() {
                     Having trouble?{" "}
                     <a
                       href="#support"
-                      className="font-medium text-purple-600 hover:text-purple-700"
+                      className="font-medium text-orange-600 hover:text-orange-700"
                     >
                       Contact support
                     </a>
@@ -409,7 +409,7 @@ export default function BankOfficerSignIn() {
             </div>
 
             <div className="order-2 lg:order-1 space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 border border-purple-200">
+              <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700 border border-orange-200">
                 <Building2 className="h-3 w-3" />
                 Bank Officer Portal
               </div>
@@ -433,13 +433,13 @@ export default function BankOfficerSignIn() {
                 <FeatureChip icon={<Smartphone className="h-3.5 w-3.5" />} text="Mobile dashboard" />
               </div>
 
-              <div className="relative rounded-2xl bg-gradient-to-br from-purple-100/50 via-white to-purple-50 p-6 border border-purple-100/50">
+              <div className="relative rounded-2xl bg-gradient-to-br from-orange-100/50 via-white to-orange-50 p-6 border border-orange-100/50">
                 <div className="relative mx-auto max-w-[200px]">
                   <div className="relative aspect-[9/19] rounded-2xl border-[3px] border-neutral-200 bg-white shadow-lg overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-white p-3">
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-white p-3">
                       <div className="space-y-2">
-                        <div className="h-6 rounded-lg bg-purple-200/50 w-3/4" />
-                        <div className="h-16 rounded-lg bg-purple-100/50" />
+                        <div className="h-6 rounded-lg bg-orange-200/50 w-3/4" />
+                        <div className="h-16 rounded-lg bg-orange-100/50" />
                         <div className="space-y-1.5">
                           <div className="h-3 rounded bg-neutral-200/50 w-full" />
                           <div className="h-3 rounded bg-neutral-200/50 w-5/6" />
@@ -448,8 +448,8 @@ export default function BankOfficerSignIn() {
                     </div>
                   </div>
                   
-                  <div className="absolute -top-3 -right-3 h-16 w-16 rounded-full bg-purple-200/30 blur-xl" />
-                  <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-purple-300/20 blur-xl" />
+                  <div className="absolute -top-3 -right-3 h-16 w-16 rounded-full bg-orange-200/30 blur-xl" />
+                  <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-orange-300/20 blur-xl" />
                 </div>
               </div>
             </div>
@@ -463,7 +463,7 @@ export default function BankOfficerSignIn() {
 const FeatureChip = ({ icon, text }: { icon: React.ReactNode; text: string }) => {
   return (
     <div className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-medium text-neutral-700 shadow-sm border border-neutral-200">
-      <span className="text-purple-600">{icon}</span>
+      <span className="text-orange-600">{icon}</span>
       {text}
     </div>
   );
