@@ -75,7 +75,7 @@ const SubmissionSchema = new mongoose.Schema(
         "UNDER_REVIEW",     // officer opened
         "APPROVED",         // utilization approved
         "REJECTED",         // rejected
-        "NEED_RESUBMISSION" // ask user to resubmit
+        "RESUBMISSION" // ask user to resubmit
       ],
       default: "PENDING_AI",
     },
@@ -109,7 +109,7 @@ const SubmissionSchema = new mongoose.Schema(
       riskScore: { type: Number }, // 0–100
       decision: {
         type: String,
-        enum: ["AUTO_APPROVE", "AUTO_REVIEW", "AUTO_HIGH_RISK", null],
+        enum: ["AUTO_APPROVE", "HUMAN_REVIEW", "AUTO_HIGH_RISK","REJECTED"],
         default: null,
       },
       flags: [{ type: String }],   // e.g. ["GPS_MISMATCH", "DUPLICATE_IMAGE"]

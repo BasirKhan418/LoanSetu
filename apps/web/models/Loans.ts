@@ -54,7 +54,7 @@ const LoanSchema = new mongoose.Schema(
     // Utilization verification status (your workflow status)
     verificationStatus: {
       type: String,
-      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"],
+      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED","RESUBMISSION"],
       default: "PENDING"
     },
 
