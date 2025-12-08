@@ -57,14 +57,13 @@ export default function LanguageSelectionScreen() {
 
     setIsLoading(true);
     try {
-      // Update language in context (for immediate UI update)
-      setLanguage(selectedLanguage);
+      // Save language to AsyncStorage
+      await setLanguage(selectedLanguage);
       
-      // For testing - just simulate saving
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      // Navigate to home screen
       router.replace('/(tabs)');
-    } catch {
+    } catch (error) {
+      console.error('Failed to save language:', error);
       Alert.alert(getTranslation('error', currentLanguage.code), getTranslation('failedSaveLanguage', currentLanguage.code));
     } finally {
       setIsLoading(false);
