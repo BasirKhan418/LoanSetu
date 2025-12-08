@@ -54,7 +54,7 @@ export const POST = async (request: NextRequest) => {
             await newBank.save();
             return NextResponse.json({message: "Bank created successfully",success:true}, {status: 201});
         }
-        
+
         else{
             const bank = await Bank.findOne({ifsc: reqBody.ifsc } as any);
             if(!bank){
@@ -79,6 +79,7 @@ export const PUT = async (request: NextRequest) => {
         await ConnectDb();
         const reqBody = await request.json();
         const bank = await (Bank as any).findById(reqBody.id as string);
+        console.log("Updating bank:", reqBody.id);
         if(!bank){
             return NextResponse.json({message: "Bank not found",success:false}, {status: 404});
         }
