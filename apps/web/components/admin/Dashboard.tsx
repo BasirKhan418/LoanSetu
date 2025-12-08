@@ -8,8 +8,25 @@ import {
   IconEdit,
   IconSearch,
   IconRefresh,
+  IconFileAnalytics,
+  IconCurrencyRupee,
 } from "@tabler/icons-react";
 import { cn } from "../../lib/utils";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface DashboardProps {
   className?: string;
@@ -29,11 +46,70 @@ interface Tenant {
 
 interface StatsCard {
   title: string;
-  value: number;
+  value: number | string;
   icon: React.ReactNode;
   color: string;
   loading?: boolean;
+  subtitle?: string;
 }
+
+interface AnalyticsData {
+  overview: {
+    totalTenants: number;
+    totalUsers: number;
+    totalBanks: number;
+    totalStateOfficers: number;
+    totalLoans: number;
+    totalLoanSchemes: number;
+    activeTenants: number;
+    activeUsers: number;
+    activeBanks: number;
+    activeStateOfficers: number;
+    verifiedUsers: number;
+    verifiedStateOfficers: number;
+  };
+  loans: {
+    total: number;
+    byStatus: {
+      pending: number;
+      underReview: number;
+      approved: number;
+      rejected: number;
+    };
+    byDisbursementMode: {
+      full: number;
+      installments: number;
+      vendorPayment: number;
+    };
+    totalSanctionAmount: number;
+    averageLoanAmount: number;
+    recentLoans: Array<{
+      loanNumber: string;
+      sanctionAmount: number;
+      status: string;
+      createdAt: string;
+    }>;
+  };
+  distribution: {
+    loansByBankName: Array<{ name: string; count: number }>;
+    loansByState: Array<{ state: string; count: number }>;
+    userDistribution: Array<{ state: string; count: number }>;
+  };
+  trends: {
+    monthlyLoans: Array<{ month: string; count: number }>;
+  };
+  ai: {
+    decisions: {
+      autoApprove: number;
+      autoReview: number;
+      autoHighRisk: number;
+      notProcessed: number;
+    };
+    averageRiskScore: number;
+  };
+}
+
+const COLORS = ["#ea580c", "#2563eb", "#16a34a", "#9333ea", "#dc2626", "#ca8a04"];
 
 export function Dashboard({ className }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "users" | "banks" | "officers">("overview");
@@ -41,12 +117,7 @@ export function Dashboard({ className }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [stats, setStats] = useState({
-    totalTenants: 0,
-    totalUsers: 0,
-    totalBanks: 0,
-    totalOfficers: 0,
-  });
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -56,6 +127,20 @@ export function Dashboard({ className }: DashboardProps) {
     setLoading(true);
     setError("");
     try {
+      // Fetch analytics data
+      const analyticsResponse = await fetch("/api/analytics", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const analyticsData = await analyticsResponse.json();
+      
+      if (analyticsData.success) {
+        setAnalytics(analyticsData.data);
+      }
+
+      // Fetch tenants if needed
       if (activeTab === "tenants" || activeTab === "overview") {
         const response = await fetch("/api/tenant", {
           method: "GET",
@@ -67,7 +152,6 @@ export function Dashboard({ className }: DashboardProps) {
         
         if (data.success) {
           setTenants(data.data || []);
-          setStats(prev => ({ ...prev, totalTenants: data.data?.length || 0 }));
         } else {
           setError(data.message || "Failed to fetch data");
         }
@@ -80,34 +164,48 @@ export function Dashboard({ className }: DashboardProps) {
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat("en-IN").format(num);
+  };
 
   const statsCards: StatsCard[] = [
     {
-      title: "Total Tenants",
-      value: stats.totalTenants,
-      icon: <IconBuilding className="h-6 w-6" />,
+      title: "Total Loans",
+      value: analytics?.loans.total || 0,
+      subtitle: `${analytics?.loans.byStatus.approved || 0} Approved`,
+      icon: <IconFileAnalytics className="h-6 w-6" />,
       color: "from-orange-500 to-orange-600",
       loading,
     },
     {
       title: "Total Users",
-      value: stats.totalUsers,
+      value: analytics?.overview.totalUsers || 0,
+      subtitle: `${analytics?.overview.verifiedUsers || 0} Verified`,
       icon: <IconUsers className="h-6 w-6" />,
       color: "from-blue-500 to-blue-600",
       loading,
     },
     {
-      title: "Total Banks",
-      value: stats.totalBanks,
-      icon: <IconBuildingBank className="h-6 w-6" />,
+      title: "Loan Amount",
+      value: analytics ? formatCurrency(analytics.loans.totalSanctionAmount) : "₹0",
+      subtitle: `Avg: ${analytics ? formatCurrency(analytics.loans.averageLoanAmount) : "₹0"}`,
+      icon: <IconCurrencyRupee className="h-6 w-6" />,
       color: "from-green-500 to-green-600",
       loading,
     },
     {
-      title: "State Officers",
-      value: stats.totalOfficers,
-      icon: <IconUserShield className="h-6 w-6" />,
+      title: "Banks & Officers",
+      value: `${analytics?.overview.totalBanks || 0} / ${analytics?.overview.totalStateOfficers || 0}`,
+      subtitle: `${analytics?.overview.totalTenants || 0} States`,
+      icon: <IconBuildingBank className="h-6 w-6" />,
       color: "from-purple-500 to-purple-600",
       loading,
     },
@@ -121,9 +219,9 @@ export function Dashboard({ className }: DashboardProps) {
   );
 
   return (
-    <div className={cn("flex flex-1 flex-col", className)}>
-      <div className="flex h-full w-full flex-1 flex-col gap-4 rounded-tl-2xl border border-neutral-200 bg-white p-4 md:p-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-neutral-200">
+    <div className={cn("flex flex-1 flex-col overflow-auto", className)}>
+      <div className="flex w-full flex-col gap-4 rounded-tl-2xl border border-neutral-200 bg-white p-4 md:p-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-neutral-200">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
               Admin Dashboard
@@ -142,7 +240,7 @@ export function Dashboard({ className }: DashboardProps) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {statsCards.map((stat, idx) => (
             <div
               key={idx}
@@ -151,7 +249,7 @@ export function Dashboard({ className }: DashboardProps) {
               <div className={cn("absolute inset-0 bg-gradient-to-br", stat.color)} />
               <div className="relative rounded-xl bg-white p-6 backdrop-blur">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm text-neutral-600">
                       {stat.title}
                     </p>
@@ -162,6 +260,11 @@ export function Dashboard({ className }: DashboardProps) {
                         stat.value
                       )}
                     </p>
+                    {stat.subtitle && (
+                      <p className="text-xs text-neutral-500 mt-1">
+                        {stat.subtitle}
+                      </p>
+                    )}
                   </div>
                   <div className={cn("p-3 rounded-full bg-gradient-to-br text-white", stat.color)}>
                     {stat.icon}
@@ -171,9 +274,8 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
           ))}
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
+      {/* Tabs */}
+      <div className="mt-1 pt-2 border-t border-neutral-200 flex gap-2 overflow-x-auto pb-2">
           {["overview", "tenants", "users", "banks", "officers"].map((tab) => (
             <button
               key={tab}
@@ -198,43 +300,255 @@ export function Dashboard({ className }: DashboardProps) {
         )}
 
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-            <div className="h-full rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                {loading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
+            {/* Loan Status Pie Chart */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 min-h-[360px]">
+              <h3 className="text-lg font-semibold mb-4">Loan Status Distribution</h3>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                </div>
+              ) : analytics ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Pending", value: analytics.loans.byStatus.pending },
+                        { name: "Under Review", value: analytics.loans.byStatus.underReview },
+                        { name: "Approved", value: analytics.loans.byStatus.approved },
+                        { name: "Rejected", value: analytics.loans.byStatus.rejected },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {[0, 1, 2, 3].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
+              )}
+            </div>
+
+            {/* Monthly Loan Trend */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 min-h-[360px]">
+              <h3 className="text-lg font-semibold mb-4">Loan Submissions Trend (6 Months)</h3>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                </div>
+              ) : analytics ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={analytics.trends.monthlyLoans}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#ea580c" 
+                      strokeWidth={2}
+                      name="Loans Submitted"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
+              )}
+            </div>
+
+            {/* Loans by Bank */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6">
+              <h3 className="text-lg font-semibold mb-4">Top Banks by Loan Count</h3>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                </div>
+              ) : analytics ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analytics.distribution.loansByBankName.slice(0, 5)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#16a34a" name="Loans Processed" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
+              )}
+            </div>
+
+            {/* Loans by State */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6">
+              <h3 className="text-lg font-semibold mb-4">Loans by State</h3>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                </div>
+              ) : analytics ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analytics.distribution.loansByState.slice(0, 5)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="state" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#2563eb" name="Total Loans" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
+              )}
+            </div>
+
+            {/* Disbursement Mode Distribution */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6">
+              <h3 className="text-lg font-semibold mb-4">Disbursement Mode Distribution</h3>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="animate-pulse text-neutral-400">Loading...</div>
+                </div>
+              ) : analytics ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Full", value: analytics.loans.byDisbursementMode.full },
+                        { name: "Installments", value: analytics.loans.byDisbursementMode.installments },
+                        { name: "Vendor Payment", value: analytics.loans.byDisbursementMode.vendorPayment },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {[0, 1, 2].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No data available</p>
+              )}
+            </div>
+
+            {/* Recent Loans */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-6">
+              <h3 className="text-lg font-semibold mb-4">Recent Loan Submissions</h3>
+              {loading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="h-16 animate-pulse rounded-lg bg-neutral-200" />
-                  ))
-                ) : (
-                  <p className="text-neutral-600 text-sm">
-                    No recent activity
-                  </p>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : analytics && analytics.loans.recentLoans.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {analytics.loans.recentLoans.map((loan, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-neutral-900">{loan.loanNumber}</p>
+                        <p className="text-xs text-neutral-600">
+                          {new Date(loan.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-sm text-neutral-900">
+                          {formatCurrency(loan.sanctionAmount)}
+                        </p>
+                        <span
+                          className={cn(
+                            "inline-flex px-2 py-1 text-xs font-medium rounded-full",
+                            loan.status === "APPROVED"
+                              ? "bg-green-100 text-green-800"
+                              : loan.status === "REJECTED"
+                              ? "bg-red-100 text-red-800"
+                              : loan.status === "UNDER_REVIEW"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-orange-100 text-orange-800"
+                          )}
+                        >
+                          {loan.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-neutral-600 text-sm text-center py-8">No recent loans</p>
+              )}
             </div>
-            <div className="h-full rounded-xl border border-neutral-200 bg-white p-6">
-              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <button className="p-4 rounded-lg bg-white border border-neutral-200 hover:border-orange-500 transition-colors">
-                  <IconUsers className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                  <p className="text-sm font-medium">Add User</p>
-                </button>
-                <button className="p-4 rounded-lg bg-white border border-neutral-200 hover:border-orange-500 transition-colors">
-                  <IconBuildingBank className="h-6 w-6 mx-auto mb-2 text-green-600" />
-                  <p className="text-sm font-medium">Add Bank</p>
-                </button>
-                <button className="p-4 rounded-lg bg-white border border-neutral-200 hover:border-orange-500 transition-colors">
-                  <IconUserShield className="h-6 w-6 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium">Add Officer</p>
-                </button>
+
+            {/* AI Analytics Dashboard */}
+            {analytics && (
+              <div className="lg:col-span-2 rounded-xl border border-neutral-200 bg-white p-6">
+                <h3 className="text-lg font-semibold mb-4">AI Decision Analytics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart
+                        data={[
+                          { name: "Auto Approve", value: analytics.ai.decisions.autoApprove },
+                          { name: "Auto Review", value: analytics.ai.decisions.autoReview },
+                          { name: "High Risk", value: analytics.ai.decisions.autoHighRisk },
+                          { name: "Not Processed", value: analytics.ai.decisions.notProcessed },
+                        ]}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" angle={-20} textAnchor="end" height={80} />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#9333ea" name="Count" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col justify-center space-y-4">
+                    <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100">
+                      <p className="text-sm text-purple-700 font-medium">Average AI Risk Score</p>
+                      <p className="text-4xl font-bold text-purple-900 mt-2">
+                        {analytics.ai.averageRiskScore.toFixed(1)}
+                        <span className="text-xl text-purple-600">/100</span>
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                        <p className="text-xs text-green-700">Auto Approved</p>
+                        <p className="text-2xl font-bold text-green-900">
+                          {analytics.ai.decisions.autoApprove}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                        <p className="text-xs text-red-700">High Risk</p>
+                        <p className="text-2xl font-bold text-red-900">
+                          {analytics.ai.decisions.autoHighRisk}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {activeTab === "tenants" && (
-          <div className="flex-1 flex flex-col gap-4">
+          <div className="flex flex-col gap-4 pb-8">
             {/* Search */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -250,7 +564,7 @@ export function Dashboard({ className }: DashboardProps) {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-auto rounded-xl border border-neutral-200">
+            <div className="overflow-auto rounded-xl border border-neutral-200 max-h-[600px]">
               <table className="w-full">
                 <thead className="bg-neutral-50 sticky top-0">
                   <tr>
@@ -331,7 +645,7 @@ export function Dashboard({ className }: DashboardProps) {
         )}
 
         {(activeTab === "users" || activeTab === "banks" || activeTab === "officers") && (
-          <div className="flex-1 flex items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 min-h-[400px] mb-8">
             <div className="text-center p-8">
               <p className="text-neutral-600 text-lg">
                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} management coming soon
