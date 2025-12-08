@@ -53,8 +53,8 @@ export const POST = async (request: NextRequest) => {
             const newBank = new Bank(reqBody);
             await newBank.save();
             return NextResponse.json({message: "Bank created successfully",success:true}, {status: 201});
-
         }
+        
         else{
             const bank = await Bank.findOne({ifsc: reqBody.ifsc } as any);
             if(!bank){
