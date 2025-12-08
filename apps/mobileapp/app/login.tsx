@@ -28,11 +28,18 @@ export default function LoginScreen() {
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
   const router = useRouter();
-  const { sendOTP, verifyOTP, isLoading } = useAuth();
+  const { sendOTP, verifyOTP, isLoading, user } = useAuth();
   
   const scrollViewRef = useRef<ScrollView>(null);
   const mobileInputRef = useRef<TextInput>(null);
   const otpInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      console.log('[Login] User already authenticated, redirecting to home');
+      router.replace('/(tabs)');
+    }
+  }, [user, isLoading, router]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
