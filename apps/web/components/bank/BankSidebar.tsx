@@ -31,9 +31,27 @@ interface BankSidebarProps {
 export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
   const router = useRouter();
 
-  const handleLogout = () => {
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/bank/signin");
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        router.push("/bank/signin");
+      } else {
+        console.error("Logout failed:", data.message);
+        // Still redirect even if API call fails
+        router.push("/bank/signin");
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Redirect anyway to ensure user is logged out
+      router.push("/bank/signin");
+    }
   };
 
   const links = [
@@ -94,17 +112,25 @@ export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
         </div>
         <div className="border-t border-neutral-200 pt-4">
           {bankData && (
-            <SidebarLink
-              link={{
-                label: bankData.contactName || bankData.name || "Bank",
-                href: "#",
-                icon: (
-                  <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
-                    {(bankData.contactName || bankData.name)?.charAt(0).toUpperCase() || "B"}
+            <div className="px-2 py-2">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                  {bankData.contactName?.charAt(0).toUpperCase() || "B"}
+                </div>
+                {open && (
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-sm font-medium text-neutral-800 truncate">
+                      {bankData.contactName || "Bank Officer"}
+                    </span>
+                    {bankData.branchName && (
+                      <span className="text-xs text-neutral-500 truncate">
+                        {bankData.branchName}
+                      </span>
+                    )}
                   </div>
-                ),
-              }}
-            />
+                )}
+              </div>
+            </div>
           )}
           <button
             onClick={handleLogout}
