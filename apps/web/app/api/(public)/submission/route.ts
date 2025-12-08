@@ -1,11 +1,12 @@
 import { NextResponse,NextRequest } from "next/server";
 import Submission from "../../../../models/Submission";
-import { cookies } from "next/headers";
+import { validationQueue } from "../../../../lib/email-queue";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
 import ConnectDb from "../../../../middleware/connectDb";
 import { headers } from "next/headers";
 import Loans from "../../../../models/Loans";
 import LoanDetails from "../../../../models/LoanDetails";
+export const runtime = "nodejs";
 export const GET = async (req: NextRequest) => {
     try{
         const headerlist = await headers();
@@ -56,6 +57,19 @@ if(!loandata){
 }
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
+        const job = await validationQueue.add(
+      "validate user submission", // job name
+      { submission: newsubmission }, // job data
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      }
+    );
         //add details in queue it will take and process later
         return NextResponse.json({message:"Submission created successfully",data:newsubmission,success:true});
     }
