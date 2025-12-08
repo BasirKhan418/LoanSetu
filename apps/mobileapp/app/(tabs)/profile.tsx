@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Bell, Cloud, Globe } from 'lucide-react-native';
+import { Bell, Cloud, Globe, Wifi, WifiOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getTranslation } from '../../utils/translations';
 
@@ -38,6 +39,7 @@ interface Loan {
 
 export default function ProfileScreen() {
   const { currentLanguage, availableLanguages, setLanguage } = useLanguage();
+  const { user, logout, isOnline, refreshUserFromBackend } = useAuth();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
@@ -47,12 +49,6 @@ export default function ProfileScreen() {
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
-  const user = {
-    name: 'Swagat Kumar Dash',
-    mobile: '+91 9556376455',
-    userId: 'USER123456',
-    joinDate: 'Jan 2024'
-  };
   const mockLoans = [
     {
       id: 1,
@@ -128,13 +124,29 @@ export default function ProfileScreen() {
         { 
           text: getTranslation('logout', currentLanguage.code), 
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await logout();
             router.replace('/login');
           }
         },
       ]
     );
   };
+
+  const handleRefresh = async () => {
+    if (isOnline && refreshUserFromBackend) {
+      await refreshUserFromBackend();
+    }
+  };
+
+  // Show loading or redirect if no user
+  if (!user) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -143,15 +155,38 @@ export default function ProfileScreen() {
       {/* Creative Header with User Profile */}
       <View style={[styles.creativeHeader, { backgroundColor: '#FC8019' }]}>
         <View style={styles.headerContent}>
+          {/* Connection Status Indicator with Sync Button */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View style={styles.connectionStatus}>
+              {isOnline ? (
+                <Wifi size={16} color="#FFF" />
+              ) : (
+                <WifiOff size={16} color="#FFD700" />
+              )}
+              <Text style={styles.connectionText}>
+                {isOnline ? 'Online' : 'Offline'}
+              </Text>
+            </View>
+            {isOnline && (
+              <TouchableOpacity 
+                onPress={handleRefresh}
+                style={styles.connectionStatus}
+              >
+                <Cloud size={16} color="#FFF" />
+                <Text style={styles.connectionText}>Sync</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
           <View style={styles.profileCard}>
             <View style={styles.profileIconContainer}>
               <Text style={styles.profileIcon}>👤</Text>
             </View>
             <View style={styles.userDetailsContainer}>
-              <Text style={styles.userNameCreative}>{user.name}</Text>
-              <Text style={styles.userPhoneCreative}>{user.mobile}</Text>
+              <Text style={styles.userNameCreative}>{user.name || 'User'}</Text>
+              <Text style={styles.userPhoneCreative}>{user.phone || 'N/A'}</Text>
               <View style={styles.userIdBadge}>
-                <Text style={styles.userIdText}>ID: {user.userId}</Text>
+                <Text style={styles.userIdText}>ID: {user._id || 'N/A'}</Text>
               </View>
             </View>
           </View>
@@ -401,10 +436,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF8F5',
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
   creativeHeader: {
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 50,
     paddingBottom: Math.max(30, height * 0.04),
     paddingHorizontal: Math.max(20, width * 0.06),
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+    alignSelf: 'flex-end',
+  },
+  connectionText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   headerContent: {
     position: 'relative',

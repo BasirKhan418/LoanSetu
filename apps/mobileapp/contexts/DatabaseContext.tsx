@@ -40,9 +40,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Monitor network connectivity with instant updates using NetInfo
   useEffect(() => {
-    // Subscribe to network state changes (instant updates via native broadcast receiver)
     const unsubscribe = NetInfo.addEventListener(state => {
       const isConnected = state.isConnected ?? false;
       const isInternetReachable = state.isInternetReachable ?? false;
@@ -58,7 +56,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setIsOnline(online);
     });
 
-    // Get initial network state
     NetInfo.fetch().then(state => {
       const isConnected = state.isConnected ?? false;
       const isInternetReachable = state.isInternetReachable ?? false;
@@ -79,7 +76,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Start sync on initialization
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -91,7 +87,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isInitialized]);
 
-  // Sync on app foreground
   useEffect(() => {
     if (!isInitialized) return;
 

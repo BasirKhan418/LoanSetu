@@ -1,7 +1,8 @@
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -23,12 +24,11 @@ const { width, height } = Dimensions.get('window');
 const scale = Math.min(width / 375, height / 812);
 
 export default function LoginScreen() {
-  const [mobile, setMobile] = useState('');
+  const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { initializeUserLanguage } = useLanguage();
+  const { sendOTP, verifyOTP, isLoading } = useAuth();
   
   const scrollViewRef = useRef<ScrollView>(null);
   const mobileInputRef = useRef<TextInput>(null);
@@ -51,59 +51,56 @@ export default function LoginScreen() {
   }, []);
 
   const handleSendOTP = async () => {
-    if (!mobile) {
-      Alert.alert('Error', 'Please enter a mobile number');
+    if (!phone || phone.length !== 10) {
+      Alert.alert('Error', 'Please enter a valid 10-digit mobile number');
       return;
     }
-
-    setIsLoading(true);
     
     try {
-      // Accept any mobile number for testing
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setStep('otp');
+      const response = await sendOTP(phone);
       
-      setTimeout(() => {
-        otpInputRef.current?.focus();
-      }, 100);
-    } catch {
+      if (response.success) {
+        Alert.alert('Success', response.message);
+        setStep('otp');
+        
+        setTimeout(() => {
+          otpInputRef.current?.focus();
+        }, 100);
+      } else {
+        Alert.alert('Error', response.message);
+      }
+    } catch (error) {
       Alert.alert('Error', 'Failed to send OTP. Please try again.');
-    } finally {
-      setIsLoading(false);
+      console.error('Send OTP Error:', error);
     }
   };
 
   const handleVerifyOTP = async () => {
-    if (!otp) {
-      Alert.alert('Error', 'Please enter OTP');
+    if (!otp || otp.length !== 6) {
+      Alert.alert('Error', 'Please enter a valid 6-digit OTP');
       return;
     }
-
-    setIsLoading(true);
     
     try {
-      // Accept any OTP for testing and create a mock user
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await verifyOTP(phone, otp);
       
-      // Create mock user without language preference for testing
-      const mockUser = {
-        id: 'test-user-' + Date.now(),
-        mobile: mobile,
-        name: 'Test User',
-        isActive: true,
-        languageCode: undefined // No language selected - will show language selection
-      };
-      
-      // Initialize user's language preference
-      initializeUserLanguage(mockUser.id, mockUser.languageCode);
-      
-      // Since no language is selected, always show language selection for testing
-      router.replace('/language-selection');
-      
-    } catch {
+      if (response.success && response.user) {
+        // Check if user has selected language before
+        const storedLanguage = await AsyncStorage.getItem('languageCode');
+        
+        if (storedLanguage) {
+          // User has already selected language, go directly to home
+          router.replace('/(tabs)');
+        } else {
+          // No language selected, go to language selection
+          router.replace('/language-selection');
+        }
+      } else {
+        Alert.alert('Error', response.message);
+      }
+    } catch (error) {
       Alert.alert('Error', 'Verification failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+      console.error('Verify OTP Error:', error);
     }
   };
 
@@ -133,7 +130,6 @@ export default function LoginScreen() {
           scrollEnabled={true}
           nestedScrollEnabled={false}
         >
-          {/* Header Section */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <Image
@@ -149,7 +145,6 @@ export default function LoginScreen() {
             <View style={styles.headerUnderline} />
           </View>
 
-        {/* Form Section */}
         <View style={styles.form}>
           {step === 'mobile' ? (
             <>
@@ -162,8 +157,8 @@ export default function LoginScreen() {
                   <TextInput
                     ref={mobileInputRef}
                     style={styles.mobileInput}
-                    value={mobile}
-                    onChangeText={(text) => setMobile(formatMobileNumber(text))}
+                    value={phone}
+                    onChangeText={(text) => setPhone(formatMobileNumber(text))}
                     placeholder="Enter 10-digit mobile number"
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
@@ -221,7 +216,7 @@ export default function LoginScreen() {
 
               <View style={styles.otpInfo}>
                 <Text style={styles.otpInfoText}>
-                  Code sent to +91 {mobile}
+                  Code sent to +91 {phone}
                 </Text>
                 <TouchableOpacity 
                   onPress={() => setStep('mobile')} 
