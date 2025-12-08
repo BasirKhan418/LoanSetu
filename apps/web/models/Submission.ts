@@ -30,7 +30,7 @@ const SubmissionSchema = new mongoose.Schema(
     // Relations
     loanId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Loan",
+      ref: "Loans",
       required: true,
     },
 

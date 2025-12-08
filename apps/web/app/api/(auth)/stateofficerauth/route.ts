@@ -62,7 +62,9 @@ export const POST = async (request: NextRequest) => {
             const generateotp = Math.floor(100000 + Math.random() * 900000).toString();
             await redis.set(`stateofficer-otp-${reqBody.email}`, generateotp, "EX", 5 * 60);
             await sendStateOfficerOtpEmail({ email: reqBody.email, otp: generateotp, name: stateAdmin.name });
+            console.log("OTP generated and email sent", generateotp);
             return NextResponse.json({message: "OTP generated successfully", success:true}, {status: 200});
+            
         }
     }
     catch(err){

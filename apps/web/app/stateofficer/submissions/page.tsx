@@ -139,15 +139,33 @@ export default function StateOfficerSubmissions() {
         method: "GET",
         credentials: "include",
       });
-      const data = await response.json();
+      
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        alert("Server returned invalid response");
+        return;
+      }
+      
+      console.log("Parsed data:", data);
+      
       if (data.success) {
         setSubmissions(data.data);
         setFilteredSubmissions(data.data);
       } else {
         console.error("Failed to fetch submissions:", data.message);
+        console.error("Full error response:", data);
+        console.error("Error details:", data.error);
+        alert(`Failed to fetch submissions: ${data.message || 'Unknown error'}${data.error ? '\nError: ' + data.error : ''}`);
       }
     } catch (error) {
       console.error("Error fetching submissions:", error);
+      alert(`Error fetching submissions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

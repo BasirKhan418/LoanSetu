@@ -6,10 +6,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "example.com",
         pathname: "/profiles/**"
+      },
+      {
+        protocol: "https",
+        hostname: "example.com",
+        pathname: "/profile/**"
       }
     ],
-    // OR (simple version)
-    // domains: ["example.com"],
   },
 };
 
