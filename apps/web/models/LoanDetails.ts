@@ -42,7 +42,7 @@ const LoanDetailsSchema = new mongoose.Schema(
     // Default RuleSet for AI verification for this loan type
     rullsetid: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "RuleSet",
+      ref: "Rullset",
       required: true
     },
 
