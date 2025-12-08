@@ -20,6 +20,7 @@ interface LocationContextType {
   showLocationPopup: () => void;
   getCurrentLocation: () => Promise<UserLocation | null>;
   isLoading: boolean;
+  hasTemporarilyDismissed: boolean;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -30,6 +31,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [hasSetLocation, setHasSetLocation] = useState(false);
   const [isLocationPopupVisible, setIsLocationPopupVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasTemporarilyDismissed, setHasTemporarilyDismissed] = useState(false);
 
   const getLocationStorageKey = (userId: string) => {
     return `@user_location_${userId}`;
@@ -50,8 +52,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         setHasSetLocation(true);
         setIsLocationPopupVisible(false);
       } else {
-        // Show popup if location not set for this user
-        setIsLocationPopupVisible(true);
+        // Show popup if location not set for this user and not temporarily dismissed
+        setIsLocationPopupVisible(!hasTemporarilyDismissed);
       }
     } catch (error) {
       console.error('Error loading stored location:', error);
@@ -63,6 +65,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // Load location when user changes
   useEffect(() => {
     if (user) {
+      // Reset temporary dismissal flag on app reopen (user change)
+      setHasTemporarilyDismissed(false);
       loadStoredLocation();
     } else {
       // Reset when user logs out
@@ -70,6 +74,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setHasSetLocation(false);
       setIsLocationPopupVisible(false);
       setIsLoading(false);
+      setHasTemporarilyDismissed(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -94,10 +99,11 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   const dismissLocationPopup = () => {
     setIsLocationPopupVisible(false);
+    setHasTemporarilyDismissed(true);
   };
 
   const showLocationPopup = () => {
-    if (!hasSetLocation) {
+    if (!hasSetLocation && !hasTemporarilyDismissed) {
       setIsLocationPopupVisible(true);
     }
   };
@@ -149,6 +155,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         showLocationPopup,
         getCurrentLocation,
         isLoading,
+        hasTemporarilyDismissed,
       }}
     >
       {children}

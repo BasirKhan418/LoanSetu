@@ -109,7 +109,7 @@ export function LocationPopup() {
 
           {/* Info text */}
           <Text style={styles.infoText}>
-            💡 You can set this location anytime from your profile
+            *You can set this location anytime from your profile
           </Text>
         </View>
       </View>
@@ -120,7 +120,7 @@ export function LocationPopup() {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

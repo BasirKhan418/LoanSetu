@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { FolderOpen, Home, Search, User } from 'lucide-react-native';
+import { FolderOpen, Home, User } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,19 +60,6 @@ export default function TabLayout() {
               size={focused ? 26 : 24} 
               color={color}
               fill="none"
-              strokeWidth={focused ? 2.5 : 2}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: getTranslation('explore', currentLanguage.code),
-          tabBarIcon: ({ color, focused }) => (
-            <Search 
-              size={focused ? 26 : 24} 
-              color={color}
               strokeWidth={focused ? 2.5 : 2}
             />
           ),

@@ -17,6 +17,7 @@ import {
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/utils/translations';
+import { Globe, Search } from 'lucide-react-native';
 
 interface Language {
   code: string;
@@ -105,7 +106,9 @@ export default function LanguageSelectionScreen() {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>🌐</Text>
+            <Text style={styles.iconText}>
+              <Globe size={28} color="#FF8C42" strokeWidth={2} />
+            </Text>
           </View>
         </View>
         <Text style={styles.title}>{getTranslation('selectLanguage', currentLanguage.code)}</Text>
@@ -117,7 +120,9 @@ export default function LanguageSelectionScreen() {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Text style={styles.searchIcon}>
+            <Search size={16} color="#FF8C42" strokeWidth={2} />
+          </Text>
           <TextInput
             style={styles.searchInput}
             placeholder={getTranslation('searchLanguages', currentLanguage.code)}
@@ -176,7 +181,7 @@ const styles = StyleSheet.create({
     width: Math.max(50, scale * 60),
     height: Math.max(50, scale * 60),
     borderRadius: Math.max(25, scale * 30),
-    backgroundColor: '#FFE4D6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF8C42',
@@ -184,6 +189,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#FF8C42',
   },
   iconText: {
     fontSize: Math.max(20, scale * 24),

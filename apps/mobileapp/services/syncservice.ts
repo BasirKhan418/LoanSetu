@@ -69,8 +69,8 @@ export class SyncService {
 
       clearTimeout(timeoutId);
       return response.ok;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      console.error('Backend ping failed:', error);
       return false;
     }
   }
