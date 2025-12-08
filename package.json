@@ -31,6 +31,7 @@
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.0",
-    "nodemailer": "^7.0.11"
+    "nodemailer": "^7.0.11",
+    "twilio": "^5.10.7"
   }
 }

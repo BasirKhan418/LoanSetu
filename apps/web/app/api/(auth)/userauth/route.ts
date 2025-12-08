@@ -5,6 +5,7 @@ import setConnectionRedis from "../../../../middleware/connectRedisClient";
 import { cookies } from "next/headers";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
 import Admin from "../../../../models/Admin";
+import { twilioClient,verifyServiceId } from "../../../../lib/twilio";
 export const GET = async (req: NextRequest) => {
     try{
         const cookieStore = await cookies();
@@ -58,7 +59,26 @@ export const POST = async (req: NextRequest) => {
             return NextResponse.json({ message: "User created successfully", data: newUser, success: true });
         }
         else {
-            //send otp to user number
+            const {phone} = data;
+            const finduser = await User.findOne({phone:phone} as any);
+            if(!finduser){
+                return NextResponse.json({message:"User not found with this number",success:false})
+            }
+            const verification = await twilioClient.verify.v2
+      .services(verifyServiceId)    
+      .verifications.create({
+        to: `+91${phone}   `,        // e.g. "+919337203632"
+        channel: "sms",   // you can use "call" or "whatsapp" if enabled
+      });
+
+    return NextResponse.json(
+      {
+        success: true,
+        status: verification.status, // usually "pending"
+        message: "OTP sent successfully",
+      },
+      { status: 200 }
+    );
         }
     }
     catch (err) {
