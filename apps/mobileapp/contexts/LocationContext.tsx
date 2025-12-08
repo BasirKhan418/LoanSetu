@@ -44,7 +44,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const storageKey = getLocationStorageKey(user.id);
+      const storageKey = getLocationStorageKey(user._id);
       const storedLocation = await AsyncStorage.getItem(storageKey);
       if (storedLocation) {
         const location = JSON.parse(storedLocation);
@@ -85,12 +85,12 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const storageKey = getLocationStorageKey(user.id);
+      const storageKey = getLocationStorageKey(user._id);
       await AsyncStorage.setItem(storageKey, JSON.stringify(location));
       setUserHomeLocation(location);
       setHasSetLocation(true);
       setIsLocationPopupVisible(false);
-      console.log(`Home location saved successfully for user ${user.id}`);
+      console.log(`Home location saved successfully for user ${user._id}`);
     } catch (error) {
       console.error('Error saving location:', error);
       throw error;

@@ -1,11 +1,15 @@
+import type { Loan } from '@/api/loansService';
+import * as loansService from '@/api/loansService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Bell, Cloud, Globe, Wifi, WifiOff } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -22,77 +26,50 @@ import { getTranslation } from '../../utils/translations';
 
 const { width, height } = Dimensions.get('window');
 const scale = width / 375;
-interface StatusStep {
-  step: string;
-  status: 'completed' | 'active' | 'pending';
-  date: string;
-}
-
-interface Loan {
-  id: number;
-  referenceId: string;
-  schemeName: string;
-  status: string;
-  amount: string;
-  statusFlow: StatusStep[];
-}
 
 export default function ProfileScreen() {
   const { currentLanguage, availableLanguages, setLanguage } = useLanguage();
   const { user, logout, isOnline, refreshUserFromBackend } = useAuth();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoadingLoans, setIsLoadingLoans] = useState(true);
   const [showLoanStatus, setShowLoanStatus] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const insets = useSafeAreaInsets();
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
-  const mockLoans = [
-    {
-      id: 1,
-      referenceId: '#SBI-AGRI-2023-8845',
-      schemeName: 'Farm Mechanization Support Scheme',
-      status: 'Active',
-      amount: '₹2,50,000',
-      statusFlow: [
-        { step: 'Application Submitted', status: 'completed', date: '15 Oct 2023' },
-        { step: 'Document Verification', status: 'completed', date: '18 Oct 2023' },
-        { step: 'Field Inspection', status: 'completed', date: '22 Oct 2023' },
-        { step: 'Loan Approved', status: 'completed', date: '25 Oct 2023' },
-        { step: 'Amount Disbursed', status: 'active', date: '28 Oct 2023' }
-      ]
-    },
-    {
-      id: 2,
-      referenceId: '#PNB-CROP-2023-7721',
-      schemeName: 'Crop Insurance Scheme',
-      status: 'Processing',
-      amount: '₹1,80,000',
-      statusFlow: [
-        { step: 'Application Submitted', status: 'completed', date: '12 Nov 2023' },
-        { step: 'Document Verification', status: 'completed', date: '15 Nov 2023' },
-        { step: 'Field Inspection', status: 'active', date: 'In Progress' },
-        { step: 'Loan Approval', status: 'pending', date: 'Pending' },
-        { step: 'Amount Disbursement', status: 'pending', date: 'Pending' }
-      ]
-    },
-    {
-      id: 3,
-      referenceId: '#HDFC-KCC-2023-9934',
-      schemeName: 'Kisan Credit Card',
-      status: 'Approved',
-      amount: '₹5,00,000',
-      statusFlow: [
-        { step: 'Application Submitted', status: 'completed', date: '5 Dec 2023' },
-        { step: 'Document Verification', status: 'completed', date: '7 Dec 2023' },
-        { step: 'Credit Check', status: 'completed', date: '8 Dec 2023' },
-        { step: 'Loan Approved', status: 'completed', date: '10 Dec 2023' },
-        { step: 'Card Processing', status: 'active', date: 'In Progress' }
-      ]
-    }
-  ];
+  
+  // Fetch loans from API
+  useEffect(() => {
+    const fetchLoans = async () => {
+      if (!user?.phone) {
+        setIsLoadingLoans(false);
+        return;
+      }
+
+      try {
+        console.log('[Profile] Fetching loans for:', user.phone);
+        const response = await loansService.getUserLoans(user.phone);
+        
+        if (response.success && response.data) {
+          console.log('[Profile] Loans fetched:', response.data.length);
+          setLoans(response.data.slice(0, 3)); // Show top 3 loans
+        } else {
+          console.error('[Profile] Failed to fetch loans:', response.message);
+        }
+      } catch (error) {
+        console.error('[Profile] Error fetching loans:', error);
+      } finally {
+        setIsLoadingLoans(false);
+      }
+    };
+
+    fetchLoans();
+  }, [user?.phone]);
 
   const handleLanguageSelect = (language: any) => {
     setSelectedLanguage(language);
@@ -108,11 +85,6 @@ export default function ProfileScreen() {
   const handleLanguageCancel = () => {
     setSelectedLanguage(currentLanguage);
     setShowLanguageModal(false);
-  };
-
-  const handleLoanCardPress = (loan: any) => {
-    setSelectedLoan(loan);
-    setShowLoanStatus(true);
   };
 
   const handleLogout = () => {
@@ -164,7 +136,7 @@ export default function ProfileScreen() {
                 <WifiOff size={16} color="#FFD700" />
               )}
               <Text style={styles.connectionText}>
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? getTranslation('online', currentLanguage.code) : getTranslation('offline', currentLanguage.code)}
               </Text>
             </View>
             {isOnline && (
@@ -173,14 +145,18 @@ export default function ProfileScreen() {
                 style={styles.connectionStatus}
               >
                 <Cloud size={16} color="#FFF" />
-                <Text style={styles.connectionText}>Sync</Text>
+                <Text style={styles.connectionText}>{getTranslation('sync', currentLanguage.code)}</Text>
               </TouchableOpacity>
             )}
           </View>
           
           <View style={styles.profileCard}>
-            <View style={styles.profileIconContainer}>
-              <Text style={styles.profileIcon}>👤</Text>
+            <View style={styles.profilePictureContainer}>
+              <Image 
+                source={require('@/assets/pht.png')} 
+                style={styles.profilePicture}
+                resizeMode="cover"
+              />
             </View>
             <View style={styles.userDetailsContainer}>
               <Text style={styles.userNameCreative}>{user.name || 'User'}</Text>
@@ -205,35 +181,68 @@ export default function ProfileScreen() {
         {/* Loan Information Cards - Horizontal Scroll */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>{getTranslation('myLoans', currentLanguage.code)}</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.loanCardsContainer}
-            contentContainerStyle={styles.loanCardsContent}
-          >
-            {mockLoans.map((loan) => (
-              <TouchableOpacity 
-                key={loan.id} 
-                style={styles.loanCard}
-                onPress={() => handleLoanCardPress(loan)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.loanCardHeader}>
-                  <Text style={styles.loanStatus}>{loan.status}</Text>
-                  <Text style={styles.loanAmount}>{loan.amount}</Text>
-                </View>
-                <View style={styles.loanCardContent}>
-                  <Text style={styles.loanLabel}>{getTranslation('referenceId', currentLanguage.code)}</Text>
-                  <Text style={styles.loanValue}>{loan.referenceId}</Text>
-                  <Text style={styles.loanLabel}>{getTranslation('scheme', currentLanguage.code)}</Text>
-                  <Text style={styles.loanSchemeName}>{loan.schemeName}</Text>
-                </View>
-                <View style={styles.tapIndicator}>
-                  <Text style={styles.tapText}>{getTranslation('tapForDetails', currentLanguage.code)}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {isLoadingLoans ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#FC8019" />
+              <Text style={styles.loadingText}>Loading loans...</Text>
+            </View>
+          ) : loans.length === 0 ? (
+            <View style={styles.emptyLoansContainer}>
+              <Text style={styles.emptyLoansText}>No loans found</Text>
+              <Text style={styles.emptyLoansSubtext}>Your loan applications will appear here</Text>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.loanCardsContainer}
+              contentContainerStyle={styles.loanCardsContent}
+            >
+              {loans.map((loan) => {
+                const formattedAmount = `₹${(loan.sanctionAmount || 0).toLocaleString('en-IN')}`;
+                const formattedDate = new Date(loan.sanctionDate).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                });
+                
+                return (
+                  <TouchableOpacity 
+                    key={loan._id} 
+                    style={styles.loanCard}
+                    onPress={() => {
+                      router.push({
+                        pathname: '/loan-verification',
+                        params: {
+                          loanId: loan._id,
+                          schemeName: loan.loanDetailsId?.name || 'N/A',
+                          amount: formattedAmount,
+                          referenceId: loan.loanNumber,
+                        }
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.loanCardHeader}>
+                      <Text style={styles.loanStatus}>{loan.verificationStatus || 'Pending'}</Text>
+                      <Text style={styles.loanAmount}>{formattedAmount}</Text>
+                    </View>
+                    <View style={styles.loanCardContent}>
+                      <Text style={styles.loanLabel}>{getTranslation('referenceId', currentLanguage.code)}</Text>
+                      <Text style={styles.loanValue}>{loan.loanNumber}</Text>
+                      <Text style={styles.loanLabel}>{getTranslation('loanName', currentLanguage.code)}</Text>
+                      <Text style={styles.loanSchemeName}>{loan.loanDetailsId?.name || 'N/A'}</Text>
+                      <Text style={styles.loanLabel}>{getTranslation('sanctioned', currentLanguage.code)}</Text>
+                      <Text style={styles.loanValue}>{formattedDate}</Text>
+                    </View>
+                    <View style={styles.tapIndicator}>
+                      <Text style={styles.tapText}>{getTranslation('tapForDetails', currentLanguage.code)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         {/* Data Sync Status Card */}
@@ -381,10 +390,10 @@ export default function ProfileScreen() {
             <View style={styles.compactHeaderContent}>
               <View style={styles.compactLoanInfo}>
                 <Text style={styles.compactModalTitle}>
-                  {selectedLoan?.schemeName || getTranslation('loanStatus', currentLanguage.code)}
+                  {selectedLoan?.loanDetailsId?.name || getTranslation('loanStatus', currentLanguage.code)}
                 </Text>
-                <Text style={styles.compactRefId}>{selectedLoan?.referenceId}</Text>
-                <Text style={styles.compactAmount}>{selectedLoan?.amount}</Text>
+                <Text style={styles.compactRefId}>{selectedLoan?.loanNumber}</Text>
+                <Text style={styles.compactAmount}>₹{selectedLoan?.sanctionAmount?.toLocaleString('en-IN')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.compactCloseButton}
@@ -397,33 +406,9 @@ export default function ProfileScreen() {
 
           <ScrollView style={styles.compactFlowContainer} showsVerticalScrollIndicator={false}>
             <Text style={styles.compactFlowTitle}>{getTranslation('loanStatus', currentLanguage.code)}</Text>
-            {selectedLoan?.statusFlow.map((step: any, index: number) => (
-              <View key={index} style={styles.compactStatusStep}>
-                <View style={styles.compactStepIndicator}>
-                  <View style={[
-                    styles.compactStepIcon,
-                    step.status === 'completed' && styles.compactStepCompleted,
-                    step.status === 'active' && styles.compactStepActive,
-                    step.status === 'pending' && styles.compactStepPending
-                  ]}>
-                    {step.status === 'completed' ? (
-                      <Text style={styles.compactStepIconText}>✓</Text>
-                    ) : step.status === 'active' ? (
-                      <Text style={styles.compactStepIconText}>●</Text>
-                    ) : (
-                      <Text style={styles.compactStepIconText}>○</Text>
-                    )}
-                  </View>
-                  {index < selectedLoan.statusFlow.length - 1 && (
-                    <View style={styles.compactStepConnector} />
-                  )}
-                </View>
-                <View style={styles.compactStepContent}>
-                  <Text style={styles.compactStepTitle}>{step.step}</Text>
-                  <Text style={styles.compactStepDate}>{step.date}</Text>
-                </View>
-              </View>
-            ))}
+            <View style={styles.emptyLoansContainer}>
+              <Text style={styles.emptyLoansText}>{getTranslation('statusTrackingComingSoon', currentLanguage.code)}</Text>
+            </View>
           </ScrollView>
         </View>
       </Modal>
@@ -439,10 +424,6 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
   },
   creativeHeader: {
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 50,
@@ -493,6 +474,32 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     fontSize: Math.max(28, scale * 32),
+  },
+  profilePictureContainer: {
+    position: 'relative',
+    width: Math.max(80, scale * 90),
+    height: Math.max(80, scale * 90),
+    marginRight: Math.max(16, scale * 20),
+  },
+  profilePicture: {
+    width: Math.max(80, scale * 90),
+    height: Math.max(80, scale * 90),
+    borderRadius: Math.max(40, scale * 45),
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  editIconButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FC8019',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   userDetailsContainer: {
     flex: 1,
@@ -1016,6 +1023,42 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
     shadowOpacity: 0.1,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  emptyLoansContainer: {
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 12,
+  },
+  emptyLoansText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  emptyLoansSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  loanDate: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
   },
   cancelButtonText: {
     color: '#666666',

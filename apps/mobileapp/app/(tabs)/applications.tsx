@@ -1,9 +1,13 @@
+import type { Loan } from '@/api/loansService';
+import * as loansService from '@/api/loansService';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslation } from '@/utils/translations';
 import { router } from 'expo-router';
 import { ChevronRight, FileText, Search, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Platform,
   ScrollView,
@@ -19,71 +23,61 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const scale = width / 375;
 
-interface Loan {
-  id: number;
-  referenceId: string;
-  schemeName: string;
-  amount: string;
-  appliedDate: string;
-  verificationStatus: 'pending' | 'submitted' | 'verified';
-}
-
 export default function ApplicationsScreen() {
   const insets = useSafeAreaInsets();
   const { currentLanguage } = useLanguage();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
 
-  const approvedLoans: Loan[] = [
-    {
-      id: 1,
-      referenceId: '#SBI-AGRI-2023-8845',
-      schemeName: 'Farm Mechanization Support Scheme',
-      amount: '₹2,50,000',
-      appliedDate: '15 Oct 2023',
-      verificationStatus: 'pending'
-    },
-    {
-      id: 2,
-      referenceId: '#PNB-CROP-2023-7721',
-      schemeName: 'Crop Insurance Scheme',
-      amount: '₹1,80,000',
-      appliedDate: '12 Nov 2023',
-      verificationStatus: 'submitted'
-    },
-    {
-      id: 3,
-      referenceId: '#HDFC-KCC-2023-9934',
-      schemeName: 'Kisan Credit Card',
-      amount: '₹5,00,000',
-      appliedDate: '5 Dec 2023',
-      verificationStatus: 'verified'
-    },
-    {
-      id: 4,
-      referenceId: '#AXIS-AGR-2023-6612',
-      schemeName: 'Agricultural Equipment Loan',
-      amount: '₹3,20,000',
-      appliedDate: '20 Dec 2023',
-      verificationStatus: 'pending'
-    }
-  ];
+  // Fetch loans from API
+  useEffect(() => {
+    const fetchLoans = async () => {
+      if (!user?.phone) {
+        setIsLoading(false);
+        return;
+      }
 
-  const filteredLoans = approvedLoans.filter(loan =>
-    loan.schemeName.toLowerCase().includes(searchQuery.toLowerCase())
+      try {
+        console.log('[Applications] Fetching loans for:', user.phone);
+        const response = await loansService.getUserLoans(user.phone);
+        
+        if (response.success && response.data) {
+          console.log('[Applications] Loans fetched:', response.data.length);
+          setLoans(response.data);
+        } else {
+          console.error('[Applications] Failed to fetch loans:', response.message);
+        }
+      } catch (error) {
+        console.error('[Applications] Error fetching loans:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLoans();
+  }, [user?.phone]);
+
+  const filteredLoans = loans.filter(loan =>
+    loan.loanDetailsId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    loan.loanDetailsId?.schemeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    loan.loanNumber?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleLoanPress = (loan: Loan) => {
+    const formattedAmount = `₹${(loan.sanctionAmount || 0).toLocaleString('en-IN')}`;
     router.push({
       pathname: '/loan-verification',
       params: {
-        loanId: loan.id.toString(),
-        schemeName: loan.schemeName,
-        amount: loan.amount,
-        referenceId: loan.referenceId,
+        loanId: loan._id,
+        schemeName: loan.loanDetailsId?.name || 'N/A',
+        amount: formattedAmount,
+        referenceId: loan.loanNumber,
       }
     });
   };
@@ -126,32 +120,47 @@ export default function ApplicationsScreen() {
         contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
       >
         <View style={styles.loansContainer}>
-          {filteredLoans.map((loan) => (
-            <TouchableOpacity
-              key={loan.id}
-              style={styles.loanCard}
-              activeOpacity={0.7}
-              onPress={() => handleLoanPress(loan)}
-            >
-              <View style={styles.loanCardContent}>
-                <View style={styles.loanIcon}>
-                  <FileText size={24} color="#FC8019" strokeWidth={2} />
-                </View>
-                <View style={styles.loanInfo}>
-                  <Text style={styles.loanName}>{loan.schemeName}</Text>
-                  <Text style={styles.loanAmount}>{loan.amount}</Text>
-                  <Text style={styles.loanDate}>{loan.referenceId} • {loan.appliedDate}</Text>
-                </View>
-              </View>
-              <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
-            </TouchableOpacity>
-          ))}
-
-          {filteredLoans.length === 0 && (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>{getTranslation('noLoansFound', currentLanguage.code)}</Text>
-              <Text style={styles.emptyStateSubtext}>{getTranslation('tryAdjustingSearch', currentLanguage.code)}</Text>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FC8019" />
+              <Text style={styles.loadingText}>Loading loans...</Text>
             </View>
+          ) : filteredLoans.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FileText size={48} color="#D1D5DB" strokeWidth={1.5} />
+              <Text style={styles.emptyStateText}>{getTranslation('noLoansFound', currentLanguage.code)}</Text>
+              <Text style={styles.emptyStateSubtext}>{searchQuery ? getTranslation('tryAdjustingSearch', currentLanguage.code) : 'Your loan applications will appear here'}</Text>
+            </View>
+          ) : (
+            filteredLoans.map((loan) => {
+              const formattedDate = new Date(loan.sanctionDate).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              });
+              const formattedAmount = `₹${(loan.sanctionAmount || 0).toLocaleString('en-IN')}`;
+              
+              return (
+                <TouchableOpacity
+                  key={loan._id}
+                  style={styles.loanCard}
+                  activeOpacity={0.7}
+                  onPress={() => handleLoanPress(loan)}
+                >
+                  <View style={styles.loanCardContent}>
+                    <View style={styles.loanIcon}>
+                      <FileText size={24} color="#FC8019" strokeWidth={2} />
+                    </View>
+                    <View style={styles.loanInfo}>
+                      <Text style={styles.loanName}>{loan.loanDetailsId?.name || 'N/A'}</Text>
+                      <Text style={styles.loanAmount}>{formattedAmount}</Text>
+                      <Text style={styles.loanDate}>{loan.loanNumber} • {formattedDate}</Text>
+                    </View>
+                  </View>
+                  <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -266,19 +275,30 @@ const styles = StyleSheet.create({
     fontSize: Math.max(11, scale * 12),
     color: '#9CA3AF',
   },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
   },
   emptyStateText: {
+    marginTop: 16,
     fontSize: Math.max(16, scale * 18),
     fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
+    color: '#374151',
   },
   emptyStateSubtext: {
+    marginTop: 8,
     fontSize: Math.max(14, scale * 15),
-    color: '#9CA3AF',
+    color: '#6B7280',
   },
 });

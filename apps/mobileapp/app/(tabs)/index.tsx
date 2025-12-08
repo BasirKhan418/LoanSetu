@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { getTranslation } from '@/utils/translations';
 import { router } from 'expo-router';
+import * as loansService from '@/api/loansService';
 import {
   AlertCircle,
   CheckCircle,
@@ -14,7 +15,7 @@ import {
   Search,
   TrendingUp,
 } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -31,13 +32,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const scale = width / 375;
 
-interface Loan {
-  id: number;
-  referenceId: string;
+interface LoanDetails {
+  _id: string;
+  name: string;
   schemeName: string;
-  amount: string;
-  status: 'pending' | 'submitted' | 'verified' | 'approved' | 'disbursed';
-  appliedDate: string;
+  schemeCode: string;
+}
+
+interface Loan {
+  _id: string;
+  loanNumber: string;
+  loanDetailsId: LoanDetails;
+  sanctionAmount: number;
+  sanctionDate: string;
+  verificationStatus: string;
+  createdAt: string;
 }
 
 export default function DashboardScreen() {
@@ -45,6 +54,7 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { currentLanguage } = useLanguage();
   const insets = useSafeAreaInsets();
+  const [loans, setLoans] = useState<Loan[]>([]);
 
   // Show location popup on mount if location not set
   useEffect(() => {
@@ -56,44 +66,47 @@ export default function DashboardScreen() {
     }
   }, [hasSetLocation, showLocationPopup]);
 
+  // Fetch loans from API
+  useEffect(() => {
+    const fetchLoans = async () => {
+      if (!user?.phone) {
+        return;
+      }
+
+      try {
+        console.log('[Dashboard] Fetching loans for:', user.phone);
+        const response = await loansService.getUserLoans(user.phone);
+        
+        if (response.success && response.data) {
+          console.log('[Dashboard] Loans fetched:', response.data.length);
+          setLoans(response.data);
+        } else {
+          console.error('[Dashboard] Failed to fetch loans:', response.message);
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error fetching loans:', error);
+      }
+    };
+
+    fetchLoans();
+  }, [user?.phone]);
+
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
 
-  // Mock loan data
-  const submittedLoans: Loan[] = [
-    {
-      id: 1,
-      referenceId: '#SBI-AGRI-2023-8845',
-      schemeName: 'Farm Mechanization Loan',
-      amount: '₹2,50,000',
-      status: 'verified',
-      appliedDate: '15 Oct 2023'
-    },
-    {
-      id: 2,
-      referenceId: '#PNB-CROP-2023-7721',
-      schemeName: 'Crop Insurance Scheme',
-      amount: '₹1,80,000',
-      status: 'submitted',
-      appliedDate: '12 Nov 2023'
-    },
-    {
-      id: 3,
-      referenceId: '#HDFC-KCC-2023-9934',
-      schemeName: 'Kisan Credit Card',
-      amount: '₹5,00,000',
-      status: 'approved',
-      appliedDate: '5 Dec 2023'
-    }
-  ];
-
+  // Calculate stats from real data
   const stats = {
-    totalLoans: submittedLoans.length,
-    totalAmount: '₹9,30,000',
-    approved: submittedLoans.filter(l => l.status === 'approved').length,
-    pending: submittedLoans.filter(l => l.status === 'pending' || l.status === 'submitted').length
+    totalLoans: loans.length,
+    totalAmount: loans.length > 0 
+      ? `₹${loans.reduce((sum, loan) => sum + (loan.sanctionAmount || 0), 0).toLocaleString('en-IN')}`
+      : '₹0',
+    approved: loans.filter(l => l.verificationStatus?.toLowerCase() === 'approved').length,
+    pending: loans.filter(l => l.verificationStatus?.toLowerCase() === 'pending' || l.verificationStatus?.toLowerCase() === 'submitted').length
   };
+
+  // Get recent loans (last 3)
+  const submittedLoans = loans.slice(0, 3);
 
   const quickActions = [
     { id: 1, title: getTranslation('newApplication', currentLanguage.code), icon: Plus, color: '#FC8019', route: '/applications' },
@@ -222,20 +235,20 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {submittedLoans.slice(0, 3).map((loan) => {
-              const StatusIcon = getStatusIcon(loan.status);
+          {submittedLoans.slice(0, 3).map((loan) => {
+              const StatusIcon = getStatusIcon(loan.verificationStatus || 'pending');
               return (
                 <TouchableOpacity
-                  key={loan.id}
+                  key={loan._id}
                   style={styles.loanCard}
                   activeOpacity={0.7}
                   onPress={() => router.push({
                     pathname: '/loan-verification',
                     params: {
-                      loanId: loan.id.toString(),
-                      schemeName: loan.schemeName,
-                      amount: loan.amount,
-                      referenceId: loan.referenceId,
+                      loanId: loan._id.toString(),
+                      schemeName: loan.loanDetailsId.schemeName,
+                      amount: loan.sanctionAmount.toString(),
+                      referenceId: loan.loanNumber,
                     }
                   })}
                 >
@@ -243,20 +256,20 @@ export default function DashboardScreen() {
                     <View style={styles.loanIconContainer}>
                       <FileText size={20} color="#FC8019" strokeWidth={2} />
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(loan.status)}15` }]}>
-                      <StatusIcon size={14} color={getStatusColor(loan.status)} strokeWidth={2} />
-                      <Text style={[styles.statusText, { color: getStatusColor(loan.status) }]}>
-                        {getTranslation(loan.status, currentLanguage.code)}
+                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(loan.verificationStatus || 'pending')}15` }]}>
+                      <StatusIcon size={14} color={getStatusColor(loan.verificationStatus || 'pending')} strokeWidth={2} />
+                      <Text style={[styles.statusText, { color: getStatusColor(loan.verificationStatus || 'pending') }]}>
+                        {getTranslation(loan.verificationStatus || 'pending', currentLanguage.code)}
                       </Text>
                     </View>
                   </View>
                   
-                  <Text style={styles.loanScheme}>{loan.schemeName}</Text>
-                  <Text style={styles.loanAmount}>{loan.amount}</Text>
+                  <Text style={styles.loanScheme}>{loan.loanDetailsId.name}</Text>
+                  <Text style={styles.loanAmount}>₹{loan.sanctionAmount.toLocaleString('en-IN')}</Text>
                   
                   <View style={styles.loanFooter}>
-                    <Text style={styles.loanReference}>{loan.referenceId}</Text>
-                    <Text style={styles.loanDate}>{loan.appliedDate}</Text>
+                    <Text style={styles.loanReference}>{loan.loanNumber}</Text>
+                    <Text style={styles.loanDate}>{new Date(loan.sanctionDate).toLocaleDateString('en-IN')}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -563,6 +576,32 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  emptyStateSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#6B7280',
     marginBottom: 8,
     backgroundColor: '#FFFFFF',
   },
