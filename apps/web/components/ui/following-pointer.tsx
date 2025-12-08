@@ -1,5 +1,3 @@
-// Core component that receives mouse positions and renders pointer and content
-
 import React, { useEffect, useState } from "react";
 
 import { motion, AnimatePresence, useMotionValue } from "motion/react";
@@ -18,7 +16,7 @@ export const FollowerPointerCard = ({
   const y = useMotionValue(0);
   const ref = React.useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [isInside, setIsInside] = useState<boolean>(false); // Add this line
+  const [isInside, setIsInside] = useState<boolean>(false); 
 
   useEffect(() => {
     if (ref.current) {
