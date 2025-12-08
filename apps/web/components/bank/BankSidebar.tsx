@@ -4,75 +4,68 @@ import React from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "../ui/sidebar";
 import {
   IconLayoutDashboard,
-  IconUsers,
-  IconBuildingBank,
-  IconUserShield,
+  IconFileAnalytics,
+  IconCreditCard,
   IconSettings,
   IconLogout,
-  IconBuilding,
+  IconBuildingBank,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-interface AdminSidebarProps {
+interface BankSidebarProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  adminData?: {
+  bankData?: {
     name: string;
-    email: string;
-    img?: string;
-    state?: string;
+    branchName?: string;
+    contactName?: string;
+    contactEmail?: string;
+    ifsc?: string;
   };
 }
 
-export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
+export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
   const router = useRouter();
 
   const handleLogout = () => {
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/admin/signin");
+    router.push("/bank/signin");
   };
 
   const links = [
     {
       label: "Dashboard",
-      href: "/admin/dashboard",
+      href: "/bank/dashboard",
       icon: (
         <IconLayoutDashboard className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "Tenants",
-      href: "/admin/tenants",
+      label: "Active Loans",
+      href: "/bank/loans",
       icon: (
-        <IconBuilding className="h-5 w-5 shrink-0 text-neutral-700" />
+        <IconCreditCard className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "Users",
-      href: "/admin/users",
+      label: "Verification Reports",
+      href: "/bank/reports",
       icon: (
-        <IconUsers className="h-5 w-5 shrink-0 text-neutral-700" />
+        <IconFileAnalytics className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "State Officers",
-      href: "/admin/officers",
-      icon: (
-        <IconUserShield className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Bank Officers",
-      href: "/admin/banks",
+      label: "Bank Profile",
+      href: "/bank/profile",
       icon: (
         <IconBuildingBank className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
       label: "Settings",
-      href: "/admin/settings",
+      href: "/bank/settings",
       icon: (
         <IconSettings className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
@@ -91,22 +84,14 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
           </div>
         </div>
         <div className="border-t border-neutral-200 pt-4">
-          {adminData && (
+          {bankData && (
             <SidebarLink
               link={{
-                label: adminData.name || "Admin",
+                label: bankData.contactName || bankData.name || "Bank",
                 href: "#",
-                icon: adminData.img ? (
-                  <Image
-                    src={adminData.img}
-                    className="h-7 w-7 shrink-0 rounded-full object-cover"
-                    width={28}
-                    height={28}
-                    alt={adminData.name}
-                  />
-                ) : (
+                icon: (
                   <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
-                    {adminData.name?.charAt(0).toUpperCase() || "A"}
+                    {(bankData.contactName || bankData.name)?.charAt(0).toUpperCase() || "B"}
                   </div>
                 ),
               }}
@@ -136,7 +121,7 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
 const Logo = () => {
   return (
     <a
-      href="/admin/dashboard"
+      href="/bank/dashboard"
       className="relative z-20 flex items-center space-x-3 py-1 text-sm font-normal"
     >
       <Image
@@ -160,7 +145,7 @@ const Logo = () => {
 const LogoIcon = () => {
   return (
     <a
-      href="/admin/dashboard"
+      href="/bank/dashboard"
       className="relative z-20 flex items-center space-x-2 py-1"
     >
       <Image

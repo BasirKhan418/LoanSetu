@@ -4,75 +4,68 @@ import React from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "../ui/sidebar";
 import {
   IconLayoutDashboard,
-  IconUsers,
-  IconBuildingBank,
-  IconUserShield,
+  IconClipboardCheck,
+  IconFileCheck,
   IconSettings,
   IconLogout,
-  IconBuilding,
+  IconUser,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-interface AdminSidebarProps {
+interface StateOfficerSidebarProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  adminData?: {
+  officerData?: {
     name: string;
     email: string;
     img?: string;
     state?: string;
+    designation?: string;
   };
 }
 
-export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
+export function StateOfficerSidebar({ open, setOpen, officerData }: StateOfficerSidebarProps) {
   const router = useRouter();
 
   const handleLogout = () => {
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/admin/signin");
+    router.push("/stateofficer/signin");
   };
 
   const links = [
     {
       label: "Dashboard",
-      href: "/admin/dashboard",
+      href: "/stateofficer/dashboard",
       icon: (
         <IconLayoutDashboard className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "Tenants",
-      href: "/admin/tenants",
+      label: "Review Submissions",
+      href: "/stateofficer/submissions",
       icon: (
-        <IconBuilding className="h-5 w-5 shrink-0 text-neutral-700" />
+        <IconClipboardCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "Users",
-      href: "/admin/users",
+      label: "Approved",
+      href: "/stateofficer/approved",
       icon: (
-        <IconUsers className="h-5 w-5 shrink-0 text-neutral-700" />
+        <IconFileCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
-      label: "State Officers",
-      href: "/admin/officers",
+      label: "Profile",
+      href: "/stateofficer/profile",
       icon: (
-        <IconUserShield className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Bank Officers",
-      href: "/admin/banks",
-      icon: (
-        <IconBuildingBank className="h-5 w-5 shrink-0 text-neutral-700" />
+        <IconUser className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
     {
       label: "Settings",
-      href: "/admin/settings",
+      href: "/stateofficer/settings",
       icon: (
         <IconSettings className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
@@ -91,22 +84,22 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
           </div>
         </div>
         <div className="border-t border-neutral-200 pt-4">
-          {adminData && (
+          {officerData && (
             <SidebarLink
               link={{
-                label: adminData.name || "Admin",
+                label: officerData.name || "Officer",
                 href: "#",
-                icon: adminData.img ? (
+                icon: officerData.img ? (
                   <Image
-                    src={adminData.img}
+                    src={officerData.img}
                     className="h-7 w-7 shrink-0 rounded-full object-cover"
                     width={28}
                     height={28}
-                    alt={adminData.name}
+                    alt={officerData.name}
                   />
                 ) : (
                   <div className="h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
-                    {adminData.name?.charAt(0).toUpperCase() || "A"}
+                    {officerData.name?.charAt(0).toUpperCase() || "O"}
                   </div>
                 ),
               }}
@@ -136,7 +129,7 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
 const Logo = () => {
   return (
     <a
-      href="/admin/dashboard"
+      href="/stateofficer/dashboard"
       className="relative z-20 flex items-center space-x-3 py-1 text-sm font-normal"
     >
       <Image
@@ -160,7 +153,7 @@ const Logo = () => {
 const LogoIcon = () => {
   return (
     <a
-      href="/admin/dashboard"
+      href="/stateofficer/dashboard"
       className="relative z-20 flex items-center space-x-2 py-1"
     >
       <Image
