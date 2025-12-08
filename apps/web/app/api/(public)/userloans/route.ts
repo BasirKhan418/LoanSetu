@@ -4,6 +4,7 @@ import ConnectDb from "../../../../middleware/connectDb";
 import Loans from "../../../../models/Loans";
 import User from "../../../../models/User";
 import LoanDetails from "../../../../models/LoanDetails";
+import Rullset from "../../../../models/Rullset";
 export const GET= async (req: NextRequest) => {
     try{
         await ConnectDb();
@@ -17,11 +18,14 @@ export const GET= async (req: NextRequest) => {
   .populate({ path: "loanDetailsId", model: "LoanDetails" },)
   .populate({ path: "createdByBankOfficerId", model: "Bank" })
   .populate({ path: "bankid", model: "Bank" });
+  return NextResponse.json({ message: "Loans fetched successfully for tenant", data: finduser, success: true });
+
         }
         const loans = await Loans.find({} as any) .populate({ path: "beneficiaryId", model: "User" })
   .populate({ path: "loanDetailsId", model: "LoanDetails" })
   .populate({ path: "createdByBankOfficerId", model: "Bank" })
   .populate({ path: "bankid", model: "Bank" });
+
         return NextResponse.json({ message: "All Loans fetched successfully", data: loans, success: true });
 
     }
