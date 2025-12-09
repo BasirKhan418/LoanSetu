@@ -1,5 +1,9 @@
 from fastapi import FastAPI
 from routers.validate_router import router as validate_router
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(
     title="AI Validation Engine",
