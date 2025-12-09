@@ -103,13 +103,6 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
         <IconShieldCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
-    {
-      label: "Settings",
-      href: "/admin/settings",
-      icon: (
-        <IconSettings className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
   ];
 
   return (
