@@ -84,27 +84,6 @@ export function BankSidebar({ open, setOpen, bankData }: BankSidebarProps) {
         <IconClipboardCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
-    {
-      label: "Verification Reports",
-      href: "/bank/reports",
-      icon: (
-        <IconFileAnalytics className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Bank Profile",
-      href: "/bank/profile",
-      icon: (
-        <IconBuildingBank className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Settings",
-      href: "/bank/settings",
-      icon: (
-        <IconSettings className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
   ];
 
   return (
