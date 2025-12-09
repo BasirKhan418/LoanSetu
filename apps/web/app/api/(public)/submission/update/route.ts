@@ -11,7 +11,7 @@ export const PATCH = async (req: NextRequest) => {
         await ConnectDb();
         const data = await req.json();
 
-        const { submissionId, aiSummary } = data;
+        const { submissionId, aiSummary,llmReport } = data;
 
         if (!submissionId || !aiSummary) {
             return NextResponse.json(
@@ -43,6 +43,10 @@ export const PATCH = async (req: NextRequest) => {
         } else if (decision === "NEED_RESUBMISSION") {
             submission.status = "NEED_RESUBMISSION";
         }
+         // ✅ Correctly set llmReport from body, not from aiSummary
+    if (llmReport) {
+      submission.llmReport = llmReport;
+    }
 
         await submission.save();
 

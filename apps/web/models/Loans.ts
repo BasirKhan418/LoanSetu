@@ -54,7 +54,7 @@ const LoanSchema = new mongoose.Schema(
     // Utilization verification status (your workflow status)
     verificationStatus: {
       type: String,
-      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED","RESUBMISSION"],
+      enum: ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED","RESUBMISSION","NEED_RESUBMISSION"],
       default: "PENDING"
     },
 
@@ -62,7 +62,7 @@ const LoanSchema = new mongoose.Schema(
     lastAiRiskScore: { type: Number, default: null }, // 0–100
     lastAiDecision: {
       type: String,
-      enum: ["AUTO_APPROVE", "AUTO_REVIEW", "AUTO_HIGH_RISK", null],
+      enum: ["AUTO_APPROVE", "AUTO_REVIEW", "AUTO_HIGH_RISK", "NEED_RESUBMISSION","HUMAN_REVIEW","REJECTED"],
       default: null
     },
 

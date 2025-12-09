@@ -62,7 +62,7 @@ const SubmissionSchema = new mongoose.Schema(
     // Lifecycle
     submissionType: {
       type: String,
-      enum: ["INITIAL", "RESUBMISSION", "APPEAL"],
+      enum: ["INITIAL", "RESUBMISSION", "APPEAL","NEED_RESUBMISSION"],
       default: "INITIAL",
     },
 
@@ -75,7 +75,8 @@ const SubmissionSchema = new mongoose.Schema(
         "UNDER_REVIEW",     // officer opened
         "APPROVED",         // utilization approved
         "REJECTED",         // rejected
-        "RESUBMISSION" // ask user to resubmit
+        "RESUBMISSION",
+        "NEED_RESUBMISSION" // ask user to resubmit
       ],
       default: "PENDING_AI",
     },
@@ -109,7 +110,7 @@ const SubmissionSchema = new mongoose.Schema(
       riskScore: { type: Number }, // 0–100
       decision: {
         type: String,
-        enum: ["AUTO_APPROVE", "HUMAN_REVIEW", "AUTO_HIGH_RISK","REJECTED"],
+        enum: ["AUTO_APPROVE", "HUMAN_REVIEW", "AUTO_HIGH_RISK","REJECTED","NEED_RESUBMISSION"],
         default: null,
       },
       flags: [{ type: String }],   // e.g. ["GPS_MISMATCH", "DUPLICATE_IMAGE"]
@@ -151,6 +152,7 @@ const SubmissionSchema = new mongoose.Schema(
     },
 
     isActive: { type: Boolean, default: true },
+    llmReport: { type: String }, // detailed report from LLM
   },
   { timestamps: true }
 );
