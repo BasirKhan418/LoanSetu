@@ -11,7 +11,14 @@ export const GET = async (req: NextRequest) => {
     if (id) {
       // Fetch a single conflict by ID
       const conflict = await (ConflictOfInterest as any).findById(id)
-        .populate("submissionId", "name email phone aiSummary status")
+        .populate({
+          path: "submissionId",
+          select: "aiSummary status review beneficiaryId loanId",
+          populate: [
+            { path: "beneficiaryId", select: "name email phone" },
+            { path: "loanId", select: "loanNumber" }
+          ]
+        })
         .populate("officerId", "name email")
         .populate("tenantId", "name code state")
         .lean();
@@ -30,8 +37,15 @@ export const GET = async (req: NextRequest) => {
       });
     } else {
       // Fetch all conflicts
-      const conflicts = await ConflictOfInterest.find()
-        .populate("submissionId", "name email phone aiSummary status reviewDecision")
+      const conflicts = await (ConflictOfInterest as any).find()
+        .populate({
+          path: "submissionId",
+          select: "aiSummary status review beneficiaryId loanId",
+          populate: [
+            { path: "beneficiaryId", select: "name email phone" },
+            { path: "loanId", select: "loanNumber" }
+          ]
+        })
         .populate("officerId", "name email")
         .populate("tenantId", "name code state")
         .sort({ createdAt: -1 })

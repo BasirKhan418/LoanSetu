@@ -14,14 +14,25 @@ interface ConflictData {
   _id: string;
   submissionId: {
     _id: string;
-    name: string;
-    email: string;
-    phone: string;
     status: string;
-    reviewDecision?: string;
+    beneficiaryId?: {
+      _id: string;
+      name: string;
+      email: string;
+      phone: string;
+    };
+    loanId?: {
+      _id: string;
+      loanNumber: string;
+    };
+    review?: {
+      reviewDecision?: string;
+      reviewRemarks?: string;
+    };
     aiSummary?: {
       decision: string;
       reason?: string;
+      riskScore?: number;
     };
   };
   officerId: {
@@ -131,8 +142,9 @@ export default function ConflictsPage() {
   const filteredConflicts = conflicts.filter((conflict) => {
     const searchLower = searchQuery.toLowerCase();
     return (
-      conflict.submissionId?.name?.toLowerCase().includes(searchLower) ||
-      conflict.submissionId?.email?.toLowerCase().includes(searchLower) ||
+      conflict.submissionId?.beneficiaryId?.name?.toLowerCase().includes(searchLower) ||
+      conflict.submissionId?.beneficiaryId?.email?.toLowerCase().includes(searchLower) ||
+      conflict.submissionId?.loanId?.loanNumber?.toLowerCase().includes(searchLower) ||
       conflict.officerId?.name?.toLowerCase().includes(searchLower) ||
       conflict.tenantId?.name?.toLowerCase().includes(searchLower) ||
       conflict.tenantId?.state?.toLowerCase().includes(searchLower)
@@ -275,10 +287,13 @@ export default function ConflictsPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col">
                               <div className="text-sm font-medium text-gray-900">
-                                {conflict.submissionId?.name || "N/A"}
+                                {conflict.submissionId?.beneficiaryId?.name || "N/A"}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {conflict.submissionId?.email || "N/A"}
+                                {conflict.submissionId?.beneficiaryId?.email || "N/A"}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                Loan: {conflict.submissionId?.loanId?.loanNumber || "N/A"}
                               </div>
                             </div>
                           </td>
@@ -306,7 +321,7 @@ export default function ConflictsPage() {
                                 )
                               )}
                             >
-                              {conflict.submissionId?.aiSummary?.decision || "N/A"}
+                              {conflict.submissionId?.aiSummary?.decision?.replace(/_/g, ' ') || "N/A"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -314,11 +329,11 @@ export default function ConflictsPage() {
                               className={cn(
                                 "inline-flex px-2 py-1 text-xs font-semibold rounded-full border",
                                 getDecisionBadgeColor(
-                                  conflict.submissionId?.reviewDecision
+                                  conflict.submissionId?.review?.reviewDecision
                                 )
                               )}
                             >
-                              {conflict.submissionId?.reviewDecision || "N/A"}
+                              {conflict.submissionId?.review?.reviewDecision || "N/A"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -410,20 +425,24 @@ export default function ConflictsPage() {
                   <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                     <p className="text-sm">
                       <span className="font-medium">Name:</span>{" "}
-                      {selectedConflict.submissionId?.name}
+                      {selectedConflict.submissionId?.beneficiaryId?.name || "N/A"}
                     </p>
                     <p className="text-sm">
                       <span className="font-medium">Email:</span>{" "}
-                      {selectedConflict.submissionId?.email}
+                      {selectedConflict.submissionId?.beneficiaryId?.email || "N/A"}
                     </p>
                     <p className="text-sm">
                       <span className="font-medium">Phone:</span>{" "}
-                      {selectedConflict.submissionId?.phone}
+                      {selectedConflict.submissionId?.beneficiaryId?.phone || "N/A"}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-medium">Loan Number:</span>{" "}
+                      {selectedConflict.submissionId?.loanId?.loanNumber || "N/A"}
                     </p>
                     <p className="text-sm">
                       <span className="font-medium">Status:</span>{" "}
                       <span className="capitalize">
-                        {selectedConflict.submissionId?.status}
+                        {selectedConflict.submissionId?.status?.replace(/_/g, ' ') || "N/A"}
                       </span>
                     </p>
                   </div>
@@ -485,9 +504,15 @@ export default function ConflictsPage() {
                           )
                         )}
                       >
-                        {selectedConflict.submissionId?.aiSummary?.decision ||
+                        {selectedConflict.submissionId?.aiSummary?.decision?.replace(/_/g, ' ') ||
                           "N/A"}
                       </span>
+                      {selectedConflict.submissionId?.aiSummary?.riskScore !== undefined && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          <span className="font-medium">Risk Score:</span>{" "}
+                          {selectedConflict.submissionId.aiSummary.riskScore}
+                        </p>
+                      )}
                       {selectedConflict.submissionId?.aiSummary?.reason && (
                         <p className="text-sm text-gray-600 mt-3">
                           <span className="font-medium">Reason:</span>{" "}
@@ -503,16 +528,16 @@ export default function ConflictsPage() {
                         className={cn(
                           "inline-flex px-3 py-1 text-sm font-semibold rounded-full border",
                           getDecisionBadgeColor(
-                            selectedConflict.submissionId?.reviewDecision
+                            selectedConflict.submissionId?.review?.reviewDecision
                           )
                         )}
                       >
-                        {selectedConflict.submissionId?.reviewDecision || "N/A"}
+                        {selectedConflict.submissionId?.review?.reviewDecision || "N/A"}
                       </span>
-                      {selectedConflict.officerRemarks && (
+                      {(selectedConflict.officerRemarks || selectedConflict.submissionId?.review?.reviewRemarks) && (
                         <p className="text-sm text-gray-600 mt-3">
                           <span className="font-medium">Remarks:</span>{" "}
-                          {selectedConflict.officerRemarks}
+                          {selectedConflict.officerRemarks || selectedConflict.submissionId?.review?.reviewRemarks}
                         </p>
                       )}
                     </div>
