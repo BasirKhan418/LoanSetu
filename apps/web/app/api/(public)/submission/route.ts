@@ -6,6 +6,7 @@ import ConnectDb from "../../../../middleware/connectDb";
 import { headers } from "next/headers";
 import Loans from "../../../../models/Loans";
 import LoanDetails from "../../../../models/LoanDetails";
+import { appendLedgerEntry } from "../../../../lib/ledger-service";
 export const runtime = "nodejs";
 import Rullset from "../../../../models/Rullset";
 export const GET = async (req: NextRequest) => {
@@ -60,8 +61,6 @@ if(!loandata){
 }
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
-        const rullset = await Rullset.findOne({ _id: loandata.loanDetailsId.rullsetid } as any);
-        
         const job = await validationQueue.add(
       "validate user submission", // job name
       { submission: newsubmission }, // job data

@@ -6,6 +6,7 @@ import { verifyAdminToken } from "../../../../utils/verifyToken";
 import Bank from "../../../../models/Bank";
 import StateOfficer from "../../../../models/StateOfficer";
 import Loans from "../../../../models/Loans";
+import { appendLedgerEntry } from "../../../../lib/ledger-service";
 export const GET = async (req: NextRequest) => {
     try{
         await ConnectDb();
@@ -205,6 +206,42 @@ export const PUT= async (req: NextRequest) => {
       updatedSubmission.loanId,
       { $set: { verificationStatus: updatedSubmission.status } }
     );
+    
+    // 🔗 LEDGER: Record submission status changes
+    try {
+      let eventType = 'SUBMISSION_UPDATED';
+      
+      // Determine specific event type based on the update
+      if (reviewDecision === 'APPROVED') {
+        eventType = 'LOAN_APPROVED';
+      } else if (reviewDecision === 'REJECTED') {
+        eventType = 'LOAN_REJECTED';
+      } else if (reviewDecision === 'ASK_RESUBMISSION') {
+        eventType = 'RESUBMISSION_REQUESTED';
+      } else if (aiSummary) {
+        eventType = 'AI_VALIDATION_COMPLETED';
+      } else if (appeal?.appealStatus) {
+        eventType = 'APPEAL_' + appeal.appealStatus;
+      }
+      
+      await appendLedgerEntry({
+        loanId: updatedSubmission.loanId.toString(),
+        eventType,
+        eventData: {
+          submissionId: submissionId,
+          previousStatus: submission.status,
+          newStatus: updatedSubmission.status,
+          reviewDecision: reviewDecision || 'N/A',
+          reviewRemarks: reviewRemarks || '',
+          aiRiskScore: aiSummary?.riskScore,
+          updatedBy: validation.data?.type,
+          updatedAt: new Date().toISOString(),
+        },
+        performedBy: validation.data?.email || validation.data?.ifsc || validation.data?.id || 'officer',
+      });
+    } catch (ledgerError) {
+      console.error('Failed to record submission update in ledger:', ledgerError);
+    }
 
     return NextResponse.json({
       message: "Submission updated successfully",

@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Append-only loan ledger with hash chaining
+model LoanLedgerEntry {
+  id            String   @id @default(cuid())
+  loanId        String   @db.VarChar(255)
+  
+  // Blockchain-like fields
+  sequenceNum   Int      // Sequential number within this loan's chain
+  previousHash  String   @db.VarChar(64) // SHA-256 hash of previous entry (or "GENESIS" for first)
+  currentHash   String   @db.VarChar(64) // SHA-256 hash of this entry
+  
+  // Event data
+  eventType     String   @db.VarChar(100) // e.g., "CREATED", "APPROVED", "DISBURSED", "PAYMENT_RECEIVED"
+  eventData     String   @db.Text // JSON string with event details
+  amount        Decimal? @db.Decimal(15, 2) // Optional amount for financial events
+  
+  // Metadata
+  performedBy   String   @db.VarChar(255) // User/system who triggered this event
+  timestamp     DateTime @default(now())
+  ipAddress     String?  @db.VarChar(45) // Optional IP tracking
+  
+  // Indexes for performance
+  @@index([loanId, sequenceNum])
+  @@index([loanId, timestamp])
+  @@unique([loanId, sequenceNum]) // Ensure sequence integrity
+  @@map("loan_ledger")
+}
