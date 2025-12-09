@@ -54,6 +54,7 @@ export const PATCH = async (req: NextRequest) => {
         await (Loans as any).findByIdAndUpdate(submission.loanId, {
             lastAiRiskScore: aiSummary.riskScore,
             lastAiDecision: decision,
+            verificationStatus: decision,
         } as any);
 
         // Log to ledger

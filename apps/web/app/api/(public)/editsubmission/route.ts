@@ -7,9 +7,7 @@ import Bank from "../../../../models/Bank";
 import StateOfficer from "../../../../models/StateOfficer";
 import Loans from "../../../../models/Loans";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
-import Admin from "../../../../models/Admin";
-import { sendConflictNotificationEmail } from "../../../../email/sendConflictNotificationEmail";
-import User from "../../../../models/User";
+import { analyzeConflictOfInterest } from "../../../../lib/conflict-engine";
 export const GET = async (req: NextRequest) => {
     try{
         await ConnectDb();
@@ -306,6 +304,21 @@ export const PUT= async (req: NextRequest) => {
       }
     } else {
       console.log("ℹ️ Skipping conflict check - missing reviewDecision or AI decision");
+    }
+    
+    // 🔍 CONFLICT ANALYSIS: Check for conflicts of interest when officer reviews
+    if (reviewDecision && reviewRemarks && validation.data?.id) {
+      try {
+        await analyzeConflictOfInterest({
+          submission: updatedSubmission,
+          officerId: validation.data.id,
+          tenantId: updatedSubmission.tenantId,
+          officerRemarks: reviewRemarks || "",
+        });
+      } catch (conflictError) {
+        console.error('Failed to analyze conflict of interest:', conflictError);
+        // Don't fail the request if conflict analysis fails
+      }
     }
     
     // 🔗 LEDGER: Record submission status changes
