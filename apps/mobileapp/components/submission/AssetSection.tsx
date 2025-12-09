@@ -2,13 +2,16 @@
 import { Lightbulb, Package, Sparkles } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { AssetRules } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 
 interface AssetSectionProps {
   rules: AssetRules;
 }
 
 export function AssetSection({ rules }: AssetSectionProps) {
+  const { currentLanguage } = useLanguage();
   const assetTypes = rules.allowed_asset_types.join(', ');
 
   return (
@@ -16,12 +19,21 @@ export function AssetSection({ rules }: AssetSectionProps) {
       {/* Header */}
       <View style={styles.header}>
         <Package size={20} color="#FC8019" strokeWidth={2} />
-        <Text style={styles.title}>Asset Information</Text>
+        <Text style={styles.title}>
+          {rules.label || getTranslation('assetInformation', currentLanguage.code)}
+        </Text>
       </View>
+
+      {/* Dynamic Description */}
+      {rules.description && (
+        <Text style={styles.description}>{rules.description}</Text>
+      )}
 
       {/* Asset Type */}
       <View style={styles.assetBox}>
-        <Text style={styles.label}>ALLOWED ASSET TYPE</Text>
+        <Text style={styles.label}>
+          {getTranslation('allowedAssetType', currentLanguage.code)}
+        </Text>
         <Text style={styles.value}>{assetTypes}</Text>
       </View>
 
@@ -30,7 +42,9 @@ export function AssetSection({ rules }: AssetSectionProps) {
         <View style={styles.aiBox}>
           <View style={styles.aiHeader}>
             <Sparkles size={18} color="#FC8019" strokeWidth={2} />
-            <Text style={styles.aiTitle}>AI Verification Enabled</Text>
+            <Text style={styles.aiTitle}>
+              {getTranslation('aiVerificationEnabled', currentLanguage.code)}
+            </Text>
           </View>
           <Text style={styles.aiText}>
             Photos will be automatically analyzed to detect the asset type. The asset must be
@@ -44,29 +58,26 @@ export function AssetSection({ rules }: AssetSectionProps) {
         </View>
       )}
 
-      {/* Photography Tips */}
+      {/* Photography Tips - Dynamic or Default */}
       <View style={styles.tipsBox}>
         <View style={styles.tipsHeader}>
           <Lightbulb size={18} color="#F59E0B" strokeWidth={2} />
-          <Text style={styles.tipsTitle}>Photography Tips</Text>
+          <Text style={styles.tipsTitle}>
+            {getTranslation('photographyTips', currentLanguage.code)}
+          </Text>
         </View>
         <View style={styles.tipsList}>
-          <View style={styles.tipItem}>
-            <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Ensure good lighting conditions</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Capture from multiple angles</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Include identifying features clearly</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <View style={styles.tipDot} />
-            <Text style={styles.tipText}>Avoid blurry or dark images</Text>
-          </View>
+          {(rules.tips && rules.tips.length > 0 ? rules.tips : [
+            'Ensure good lighting conditions',
+            'Capture from multiple angles',
+            'Include identifying features clearly',
+            'Avoid blurry or dark images'
+          ]).map((tip, index) => (
+            <View key={index} style={styles.tipItem}>
+              <View style={styles.tipDot} />
+              <Text style={styles.tipText}>{tip}</Text>
+            </View>
+          ))}
         </View>
       </View>
     </View>
@@ -106,6 +117,12 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  description: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 18,
   },
   assetBox: {
     backgroundColor: '#FFF7ED',

@@ -2,8 +2,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useGpsWatcher } from '../../hooks/useGpsWatcher';
 import { GpsRules } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 
 interface GpsSectionProps {
   rules: GpsRules;
@@ -15,6 +17,7 @@ interface GpsSectionProps {
 }
 
 export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
+  const { currentLanguage } = useLanguage();
   const gpsState = useGpsWatcher(
     expectedLocation?.latitude && expectedLocation?.longitude
       ? { latitude: expectedLocation.latitude, longitude: expectedLocation.longitude }
@@ -29,7 +32,9 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Location</Text>
+        <Text style={styles.title}>
+          {rules.label || getTranslation('location', currentLanguage.code)}
+        </Text>
         {hasLocation ? (
           <Ionicons
             name={isWithinRange ? 'checkmark-circle' : 'alert-circle'}
@@ -44,7 +49,9 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
       {/* Expected Location */}
       {expectedLocation && (
         <View style={styles.locationBox}>
-          <Text style={styles.locationLabel}>Expected Location</Text>
+          <Text style={styles.locationLabel}>
+            {getTranslation('expectedLocation', currentLanguage.code)}
+          </Text>
           {expectedLocation.address && (
             <Text style={styles.locationText}>{expectedLocation.address}</Text>
           )}
@@ -58,7 +65,9 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
 
       {/* Current Location */}
       <View style={styles.locationBox}>
-        <Text style={styles.locationLabel}>Current Location</Text>
+        <Text style={styles.locationLabel}>
+          {getTranslation('currentLocation', currentLanguage.code)}
+        </Text>
         {hasLocation ? (
           <>
             <Text style={styles.coordsText}>
@@ -66,17 +75,21 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
               {location!.longitude.toFixed(6)}
             </Text>
             <Text style={styles.accuracyText}>
-              Accuracy: ±{location!.accuracy.toFixed(0)}m
+              {getTranslation('accuracy', currentLanguage.code)}: ±{location!.accuracy.toFixed(0)}m
             </Text>
             {location!.isMockLocation && (
               <View style={styles.warningBox}>
                 <Ionicons name="warning" size={16} color="#FF9500" />
-                <Text style={styles.warningText}>Mock location detected</Text>
+                <Text style={styles.warningText}>
+                  {getTranslation('mockLocationDetected', currentLanguage.code)}
+                </Text>
               </View>
             )}
           </>
         ) : (
-          <Text style={styles.loadingText}>Acquiring GPS location...</Text>
+          <Text style={styles.loadingText}>
+            {getTranslation('acquiringGpsLocation', currentLanguage.code)}
+          </Text>
         )}
       </View>
 
@@ -100,7 +113,7 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
                 isWithinRange ? styles.distanceTextSuccess : styles.distanceTextError,
               ]}
             >
-              Distance: {distanceFromExpected.toFixed(2)} km
+              {getTranslation('distance', currentLanguage.code)}: {distanceFromExpected.toFixed(2)} km
             </Text>
           </View>
           <Text
@@ -110,8 +123,8 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
             ]}
           >
             {isWithinRange
-              ? `Within allowed radius of ${rules.max_distance_km} km`
-              : `Exceeds allowed radius of ${rules.max_distance_km} km`}
+              ? `${getTranslation('withinAllowedRadius', currentLanguage.code)} ${rules.max_distance_km} km`
+              : `${getTranslation('exceedsAllowedRadius', currentLanguage.code)} ${rules.max_distance_km} km`}
           </Text>
         </View>
       )}
@@ -120,7 +133,7 @@ export function GpsSection({ rules, expectedLocation }: GpsSectionProps) {
       <View style={styles.infoBox}>
         <Ionicons name="information-circle" size={16} color="#FC8019" />
         <Text style={styles.infoText}>
-          Your location is automatically captured with each photo and video. GPS must remain enabled.
+          {rules.description || 'Your location is automatically captured with each photo and video. GPS must remain enabled.'}
         </Text>
       </View>
     </View>

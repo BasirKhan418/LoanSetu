@@ -116,3 +116,44 @@ export async function getLoanById(loanId: string, token: string): Promise<ApiRes
     };
   }
 }
+
+/**
+ * Get loan with ruleset by ID (from public API)
+ * @param loanId - Loan ID
+ * @returns Promise with loan data and ruleset
+ */
+export async function getLoanWithRuleset(loanId: string): Promise<ApiResponse<{ loan: Loan; ruleset: any }>> {
+  try {
+    const response = await apiRequest<{ data: Loan; rulelset: any }>(
+      `/api/userloans/byid?id=${loanId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    if (response.success && response.data) {
+      return {
+        success: true,
+        message: response.message,
+        data: {
+          loan: response.data,
+          ruleset: (response as any).rulelset, // Note: API has typo 'rulelset'
+        },
+      };
+    }
+    
+    return {
+      success: false,
+      message: response.message || 'Failed to fetch loan with ruleset',
+    };
+  } catch (error: any) {
+    console.error('[LoansService] Get loan with ruleset error:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to fetch loan with ruleset',
+    };
+  }
+}

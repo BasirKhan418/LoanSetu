@@ -55,10 +55,11 @@ export function validateSubmission(
     const photos = submissionState.media.filter((m) => m.type === 'IMAGE');
     const videos = submissionState.media.filter((m) => m.type === 'VIDEO');
 
-    if (photos.length < min_photos) {
+    // Require EXACT photo count
+    if (photos.length !== min_photos) {
       errors.push({
         field: 'photos',
-        message: `At least ${min_photos} photos are required. Currently: ${photos.length}`,
+        message: `Exactly ${min_photos} photos are required. Currently: ${photos.length}`,
         severity: 'error',
       });
     }

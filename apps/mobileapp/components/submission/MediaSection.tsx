@@ -5,8 +5,10 @@ import { AlertCircle, Camera, CheckCircle, Info, Video, X } from 'lucide-react-n
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { DESIGN_SYSTEM } from '../../constants/designSystem';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useSubmission } from '../../contexts/SubmissionContext';
 import { MediaRequirements } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 import { useCustomAlert } from '../CustomAlert';
 
 interface MediaSectionProps {
@@ -16,26 +18,37 @@ interface MediaSectionProps {
 export function MediaSection({ rules }: MediaSectionProps) {
   const { submissionState, removeMedia } = useSubmission();
   const { showAlert } = useCustomAlert();
+  const { currentLanguage } = useLanguage();
 
   const photos = submissionState.media.filter((m) => m.type === 'IMAGE');
   const videos = submissionState.media.filter((m) => m.type === 'VIDEO');
   const totalVideoSeconds = videos.reduce((sum, v) => sum + (v.duration || 0), 0);
 
-  const photosNeeded = Math.max(0, rules.min_photos - photos.length);
+  // Check if photos or videos are required
+  const photosRequired = rules.min_photos > 0;
+  const videosRequired = rules.min_video_seconds > 0;
+  
+  // If neither photos nor videos are required, don't render the section
+  if (!photosRequired && !videosRequired) {
+    return null;
+  }
+
+  const photosNeeded = rules.min_photos - photos.length;
   const videoSecondsNeeded = Math.max(0, rules.min_video_seconds - totalVideoSeconds);
 
-  const photosComplete = photos.length >= rules.min_photos;
+  // Require EXACT count, not minimum
+  const photosComplete = photos.length === rules.min_photos;
   const videosComplete = totalVideoSeconds >= rules.min_video_seconds;
 
   const handleRemoveMedia = (localId: string) => {
     showAlert(
       'warning',
-      'Remove Media',
-      'Are you sure you want to remove this media?',
+      getTranslation('removeMedia', currentLanguage.code),
+      getTranslation('areYouSureRemoveMedia', currentLanguage.code),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: getTranslation('cancel', currentLanguage.code), style: 'cancel' },
         {
-          text: 'Remove',
+          text: getTranslation('remove', currentLanguage.code),
           style: 'destructive',
           onPress: () => removeMedia(localId),
         },
@@ -49,93 +62,94 @@ export function MediaSection({ rules }: MediaSectionProps) {
       <View style={styles.header}>
         <Camera size={24} color={DESIGN_SYSTEM.colors.primary} strokeWidth={2.5} />
         <View style={styles.headerText}>
-          <Text style={styles.title}>Photos & Video</Text>
+          <Text style={styles.title}>{rules.label || getTranslation('photosAndVideo', currentLanguage.code)}</Text>
           <Text style={styles.subtitle}>
-            Capture clear media using camera only
+            {rules.description || getTranslation('captureClearMedia', currentLanguage.code)}
           </Text>
         </View>
       </View>
 
-      {/* Photos Section */}
-      <View style={styles.subsection}>
-        <View style={styles.subsectionHeader}>
-          <Text style={styles.subsectionTitle}>📸 Photos</Text>
-          <View style={[styles.statusBadge, photosComplete ? styles.statusSuccess : styles.statusPending]}>
-            {photosComplete ? (
-              <CheckCircle size={14} color={DESIGN_SYSTEM.colors.success} strokeWidth={2.5} />
-            ) : (
-              <AlertCircle size={14} color={DESIGN_SYSTEM.colors.warning} strokeWidth={2.5} />
-            )}
-            <Text style={[styles.statusText, photosComplete ? styles.statusSuccessText : styles.statusPendingText]}>
-              {photos.length} / {rules.min_photos}
-            </Text>
-          </View>
-        </View>
-
-        {photosNeeded > 0 && (
-          <View style={styles.warningBox}>
-            <AlertCircle size={16} color={DESIGN_SYSTEM.colors.warning} strokeWidth={2} />
-            <Text style={styles.warningText}>
-              {photosNeeded} more photo{photosNeeded > 1 ? 's' : ''} required
-            </Text>
-          </View>
-        )}
-
-        {photos.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mediaGrid}>
-            {photos.map((photo) => (
-              <View key={photo.localId} style={styles.mediaThumbnail}>
-                <Image source={{ uri: photo.localPath }} style={styles.thumbnailImage} />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.6)']}
-                  style={styles.thumbnailOverlay}
-                />
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => handleRemoveMedia(photo.localId)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.removeButtonInner}>
-                    <X size={16} color={DESIGN_SYSTEM.colors.white} strokeWidth={3} />
-                  </View>
-                </TouchableOpacity>
-                {photo.photoType && (
-                  <View style={styles.photoTypeBadge}>
-                    <Text style={styles.photoTypeText}>{photo.photoType.toUpperCase()}</Text>
-                  </View>
-                )}
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
-        <TouchableOpacity
-          style={styles.captureButton}
-          onPress={() => {
-            router.push({
-              pathname: '/camera-screen',
-              params: { mode: 'PHOTO', label: 'Capture Asset Photo' }
-            });
-          }}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[DESIGN_SYSTEM.colors.primary, DESIGN_SYSTEM.colors.primaryDark]}
-            style={styles.captureButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Camera size={20} color={DESIGN_SYSTEM.colors.white} strokeWidth={2.5} />
-            <Text style={styles.captureButtonText}>Capture Photo</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* Video Section */}
-      {rules.min_video_seconds > 0 && (
+      {photosRequired && (
         <View style={styles.subsection}>
           <View style={styles.subsectionHeader}>
-            <Text style={styles.subsectionTitle}>🎥 Video</Text>
+            <Text style={styles.subsectionTitle}>{rules.photo_label || `${getTranslation('photos', currentLanguage.code)}`}</Text>
+            <View style={[styles.statusBadge, photosComplete ? styles.statusSuccess : styles.statusPending]}>
+              {photosComplete ? (
+                <CheckCircle size={14} color={DESIGN_SYSTEM.colors.success} strokeWidth={2.5} />
+              ) : (
+                <AlertCircle size={14} color={DESIGN_SYSTEM.colors.warning} strokeWidth={2.5} />
+              )}
+              <Text style={[styles.statusText, photosComplete ? styles.statusSuccessText : styles.statusPendingText]}>
+                {photos.length} / {rules.min_photos}
+              </Text>
+            </View>
+          </View>
+
+          {photosNeeded !== 0 && (
+            <View style={styles.warningBox}>
+              <AlertCircle size={16} color={DESIGN_SYSTEM.colors.warning} strokeWidth={2} />
+              <Text style={styles.warningText}>
+                {photosNeeded > 0 ? `${photosNeeded} ${getTranslation(photosNeeded > 1 ? 'morePhotosRequired' : 'morePhotoRequired', currentLanguage.code)}` : `${getTranslation('removePhoto', currentLanguage.code)} ${Math.abs(photosNeeded)} photo${Math.abs(photosNeeded) > 1 ? 's' : ''} (exactly ${rules.min_photos} needed)`}
+              </Text>
+            </View>
+          )}
+
+          {photos.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.mediaGrid}>
+              {photos.map((photo) => (
+                <View key={photo.localId} style={styles.mediaThumbnail}>
+                  <Image source={{ uri: photo.localPath }} style={styles.thumbnailImage} />
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.6)']}
+                    style={styles.thumbnailOverlay}
+                  />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => handleRemoveMedia(photo.localId)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.removeButtonInner}>
+                      <X size={16} color={DESIGN_SYSTEM.colors.white} strokeWidth={3} />
+                    </View>
+                  </TouchableOpacity>
+                  {photo.photoType && (
+                    <View style={styles.photoTypeBadge}>
+                      <Text style={styles.photoTypeText}>{photo.photoType.toUpperCase()}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            style={styles.captureButton}
+            onPress={() => {
+              router.push({
+                pathname: '/camera-screen',
+                params: { mode: 'PHOTO', label: 'Capture Asset Photo' }
+              });
+            }}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[DESIGN_SYSTEM.colors.primary, DESIGN_SYSTEM.colors.primaryDark]}
+              style={styles.captureButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Camera size={20} color={DESIGN_SYSTEM.colors.white} strokeWidth={2.5} />
+              <Text style={styles.captureButtonText}>{getTranslation('capturePhoto', currentLanguage.code)}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Video Section - Only show if video is required */}
+      {videosRequired && (
+        <View style={styles.subsection}>
+          <View style={styles.subsectionHeader}>
+            <Text style={styles.subsectionTitle}>{rules.video_label || `${getTranslation('video', currentLanguage.code)}`}</Text>
             <View style={[styles.statusBadge, videosComplete ? styles.statusSuccess : styles.statusPending]}>
               {videosComplete ? (
                 <CheckCircle size={14} color={DESIGN_SYSTEM.colors.success} strokeWidth={2.5} />
@@ -152,7 +166,7 @@ export function MediaSection({ rules }: MediaSectionProps) {
             <View style={styles.warningBox}>
               <AlertCircle size={16} color={DESIGN_SYSTEM.colors.warning} strokeWidth={2} />
               <Text style={styles.warningText}>
-                {videoSecondsNeeded} more second{videoSecondsNeeded > 1 ? 's' : ''} required
+                {videoSecondsNeeded} {getTranslation(videoSecondsNeeded > 1 ? 'moreSecondsRequired' : 'moreSecondRequired', currentLanguage.code)}
               </Text>
             </View>
           )}
@@ -198,7 +212,7 @@ export function MediaSection({ rules }: MediaSectionProps) {
               end={{ x: 1, y: 0 }}
             >
               <Video size={20} color={DESIGN_SYSTEM.colors.white} strokeWidth={2.5} />
-              <Text style={styles.captureButtonText}>Record Video</Text>
+              <Text style={styles.captureButtonText}>{getTranslation('recordVideo', currentLanguage.code)}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -210,7 +224,7 @@ export function MediaSection({ rules }: MediaSectionProps) {
           <Info size={18} color="#6B7280" strokeWidth={2.5} />
         </View>
         <Text style={styles.infoText}>
-          All media must be captured using the camera. Gallery access is not allowed for authenticity.
+          {getTranslation('allMediaCameraOnly', currentLanguage.code)}
         </Text>
       </View>
     </View>

@@ -2,17 +2,27 @@ export interface MediaRequirements {
   min_photos: number;
   min_video_seconds: number;
   allowed_mime_types: string[];
+  label?: string;
+  description?: string;
+  photo_label?: string;
+  photo_description?: string;
+  video_label?: string;
+  video_description?: string;
 }
 
 export interface GpsRules {
   max_distance_km: number;
   require_exif_gps: boolean;
   mock_location_block: boolean;
+  label?: string;
+  description?: string;
 }
 
 export interface TimeRules {
   max_days_after_sanction: number;
   allow_before_sanction: boolean;
+  label?: string;
+  description?: string;
 }
 
 export interface ImageQualityRules {
@@ -37,12 +47,18 @@ export interface DocumentRules {
   require_invoice: boolean;
   invoice_ocr_match_amount: boolean;
   invoice_ocr_match_date: boolean;
+  label?: string;
+  description?: string;
+  document_label?: string;
 }
 
 export interface AssetRules {
   allowed_asset_types: string[];
   classifier_required: boolean;
   confidence_threshold: number;
+  label?: string;
+  description?: string;
+  tips?: string[];
 }
 
 export interface RiskWeights {

@@ -110,59 +110,11 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
       updatedAt: new Date().toISOString(),
     }));
 
-    // Save media to SQLite
-    const db = database.getDatabase();
-    if (db && submissionState.submissionId) {
-      try {
-        const submissionResult = await db.getFirstAsync<{ id: number }>(
-          'SELECT id FROM submissions WHERE localUuid = ?',
-          [submissionState.submissionId]
-        );
-
-        if (submissionResult) {
-          const typeMap: Record<string, string> = {
-            'IMAGE': 'PHOTO',
-            'VIDEO': 'VIDEO',
-            'DOCUMENT': 'INVOICE',
-          };
-
-          await db.runAsync(
-            `INSERT INTO media_files (
-              submissionId, 
-              type, 
-              photoType, 
-              localPath, 
-              mimeType, 
-              fileSize, 
-              geoLat, 
-              geoLng, 
-              timestamp, 
-              createdAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              submissionResult.id,
-              typeMap[media.type] || 'PHOTO',
-              media.photoType || null,
-              media.localPath,
-              media.mimeType,
-              media.sizeInBytes,
-              media.gpsLat || 0,
-              media.gpsLng || 0,
-              media.capturedAt,
-              new Date().toISOString(),
-            ]
-          );
-          console.log('Media saved to SQLite');
-        }
-      } catch (error) {
-        console.error('Error saving media to SQLite:', error);
-      }
-    }
+    console.log('Media added to state (will save to SQLite on submit)');
   };
 
   const removeMedia = async (localId: string) => {
-    // Find media before removing from state
-    const media = submissionState.media.find((m) => m.localId === localId);
+    console.log('Removing media with localId:', localId);
     
     setSubmissionState((prev) => ({
       ...prev,
@@ -170,20 +122,7 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
       updatedAt: new Date().toISOString(),
     }));
 
-    // Remove from SQLite if exists
-    const db = database.getDatabase();
-    if (db && media) {
-      try {
-        // Delete by localPath since newly captured media might not have id yet
-        await db.runAsync(
-          'DELETE FROM media_files WHERE localPath = ?',
-          [media.localPath]
-        );
-        console.log('Media removed from SQLite:', media.localPath);
-      } catch (error) {
-        console.error('Error removing media from SQLite:', error);
-      }
-    }
+    console.log('Media removed from state');
   };
 
   const updateLocation = (location: Location) => {
@@ -223,6 +162,52 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
           submissionState.submissionId,
         ]
       );
+
+      // Save ALL media files to SQLite now (on submit)
+      const submissionResult = await db.getFirstAsync<{ id: number }>(
+        'SELECT id FROM submissions WHERE localUuid = ?',
+        [submissionState.submissionId]
+      );
+
+      if (submissionResult && submissionState.media.length > 0) {
+        console.log(`Saving ${submissionState.media.length} media files to SQLite...`);
+        
+        const typeMap: Record<string, string> = {
+          'IMAGE': 'PHOTO',
+          'VIDEO': 'VIDEO',
+          'DOCUMENT': 'INVOICE',
+        };
+
+        for (const media of submissionState.media) {
+          await db.runAsync(
+            `INSERT INTO media_files (
+              submissionId, 
+              type, 
+              photoType, 
+              localPath, 
+              mimeType, 
+              fileSize, 
+              geoLat, 
+              geoLng, 
+              timestamp, 
+              createdAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              submissionResult.id,
+              typeMap[media.type] || 'PHOTO',
+              media.photoType || null,
+              media.localPath,
+              media.mimeType,
+              media.sizeInBytes,
+              media.gpsLat || 0,
+              media.gpsLng || 0,
+              media.capturedAt,
+              now,
+            ]
+          );
+        }
+        console.log(`✅ All ${submissionState.media.length} media files saved to SQLite`);
+      }
 
       // Store capture context
       const captureContext = {
