@@ -12,9 +12,6 @@ const s3Client = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
-    
-    // If token exists, validate it (allow all user types: user, admin, employee)
-  
     // If no token, allow upload (for employee signup process)
     
     const { filename, contentType } = await request.json();
