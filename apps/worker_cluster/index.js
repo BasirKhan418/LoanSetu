@@ -18,29 +18,46 @@ const validationWorker = new Worker(
 
     try {
       // Prepare payload for Python validation service
+      // Transform the data to match Python service schema
       const payload = {
-        submissionId: submission._id,
-        loanId: submission.loanId._id,
-        tenantId: submission.tenantId,
-        rullsetid: submission.rullsetid,
-        rullset: submission.ruleset,
+        submissionId: submission._id.toString(),
+        loanId: submission.loanId._id ? submission.loanId._id.toString() : submission.loanId.toString(),
+        tenantId: submission.tenantId.toString(),
+        rullsetid: submission.rullsetid.toString(),
+        // Map 'ruleset' to 'rullset' with proper structure
+        rullset: submission.ruleset || {},
         loanDetails: {
-          assetType: submission.loanDetailsId.assetType,
-          sanctionDate: submission.loanId.sanctionDate,
-          sanctionAmount: submission.loanId.sanctionAmount,
-          minAmount: submission.loanDetailsId.minAmount,
-          maxAmount: submission.loanDetailsId.maxAmount,
+          assetType: submission.loanDetailsId?.assetType || "UNKNOWN",
+          sanctionDate: submission.loanId?.sanctionDate || null,
+          sanctionAmount: submission.loanId?.sanctionAmount || 0,
+          minAmount: submission.loanDetailsId?.minAmount || 0,
+          maxAmount: submission.loanDetailsId?.maxAmount || 0,
         },
         gps: {
-          gpsLat: submission.media[0]?.gpsLat || null,
-          gpsLng: submission.media[0]?.gpsLng || null,
+          gpsLat: submission.media?.[0]?.gpsLat || null,
+          gpsLng: submission.media?.[0]?.gpsLng || null,
         },
-        media: submission.media,
-        sanctionDate: submission.loanId.sanctionDate,
-        expectedInvoiceAmount: submission.loanId.sanctionAmount,
+        media: submission.media || [],
+        sanctionDate: submission.loanId?.sanctionDate || null,
+        expectedInvoiceAmount: submission.loanId?.sanctionAmount || 0,
       };
 
+      console.log("📦 Payload structure:", JSON.stringify({
+        submissionId: payload.submissionId,
+        hasRullset: !!payload.rullset,
+        hasRules: !!payload.rullset?.rules,
+        mediaCount: payload.media?.length,
+        gps: payload.gps
+      }, null, 2));
+
       console.log("🚀 Sending to Python validation service...");
+      console.log("📝 Payload validation:", {
+        hasSubmissionId: !!payload.submissionId,
+        hasRullset: !!payload.rullset,
+        hasRulesInRullset: !!payload.rullset?.rules,
+        mediaCount: payload.media?.length,
+        assetType: payload.loanDetails?.assetType
+      });
       
       // Call Python validation service
       const validationResponse = await axios.post(
