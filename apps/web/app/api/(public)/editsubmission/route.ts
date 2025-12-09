@@ -396,7 +396,6 @@ export const PUT= async (req: NextRequest) => {
             stack: conflictError?.stack,
             name: conflictError?.name
           });
-          // Don't fail the request if conflict recording fails
         }
         }
       } else {
