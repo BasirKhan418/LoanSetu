@@ -1,9 +1,10 @@
 // apps/mobileapp/app/submission-screen.tsx
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CheckCircle, FileText } from 'lucide-react-native';
+import { ArrowLeft, CheckCircle, FileText, Wifi, WifiOff } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCustomAlert } from '../components/CustomAlert';
 import { DESIGN_SYSTEM, getTabBarHeight } from '../constants/designSystem';
@@ -40,6 +41,7 @@ export default function SubmissionScreen() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoanDetailsExpanded, setIsLoanDetailsExpanded] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   
   const tabBarHeight = getTabBarHeight(insets.bottom);
 
@@ -53,6 +55,14 @@ export default function SubmissionScreen() {
       // Fallback to default ruleset if no loanId
       fetchRuleset();
     }
+    
+    // Listen for network changes
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const online = state.isConnected && state.isInternetReachable;
+      setIsOnline(online || false);
+    });
+    
+    return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.loanId]);
 
@@ -179,7 +189,7 @@ export default function SubmissionScreen() {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.container}>
-        {/* Simple White Header */}
+        {/* Simple White Header with Online/Offline Indicator */}
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <View style={styles.headerContent}>
             <TouchableOpacity 
@@ -190,9 +200,22 @@ export default function SubmissionScreen() {
               <ArrowLeft size={22} color="#1F2937" strokeWidth={2.5} />
             </TouchableOpacity>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>
-                {getTranslation('verificationForm', currentLanguage.code)}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.headerTitle}>
+                  {getTranslation('verificationForm', currentLanguage.code)}
+                </Text>
+                {/* Online/Offline Indicator */}
+                <View style={[styles.onlineIndicator, !isOnline && styles.offlineIndicator]}>
+                  {isOnline ? (
+                    <Wifi size={12} color="#10b981" strokeWidth={2.5} />
+                  ) : (
+                    <WifiOff size={12} color="#ef4444" strokeWidth={2.5} />
+                  )}
+                  <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
+                    {isOnline ? 'Online' : 'Offline'}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.headerSubtitle}>{ruleset.name}</Text>
             </View>
           </View>
@@ -396,16 +419,46 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 2,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 2,
+    flex: 1,
   },
   headerSubtitle: {
     fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
+  },
+  onlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  offlineIndicator: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#ef4444',
+  },
+  onlineText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  offlineText: {
+    color: '#ef4444',
   },
   // Collapsible Loan Details Card
   loanCardWrapper: {

@@ -1,4 +1,6 @@
 // apps/mobileapp/components/QuickActionModal.tsx
+import { database } from '@/database/schema';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import { CheckCircle, Clock, FileText, X } from 'lucide-react-native';
 import React from 'react';
@@ -43,6 +45,8 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
   title,
   actionType,
 }) => {
+  const { user } = useAuth();
+
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'approved': return '#059669';
@@ -72,30 +76,58 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
     }
   };
 
-  const handleLoanPress = (loan: Loan) => {
+  // Find submission UUID for a loan
+  const findSubmissionForLoan = async (loanId: string): Promise<string | null> => {
+    const db = database.getDatabase();
+    if (!db) return null;
+
+    try {
+      const submission = await db.getFirstAsync<{ localUuid: string }>(
+        'SELECT localUuid FROM submissions WHERE loanId = ? ORDER BY createdAt DESC LIMIT 1',
+        [loanId]
+      );
+      return submission?.localUuid || null;
+    } catch (error) {
+      console.error('Error finding submission:', error);
+      return null;
+    }
+  };
+
+  const handleLoanPress = async (loan: Loan) => {
     onClose();
-    if (actionType === 'newApplication') {
-      // For pending applications, navigate to submission screen
+    
+    const status = loan.verificationStatus?.toLowerCase();
+    
+    // Only open submission-screen for pending or resubmission status
+    if (status === 'pending' || status === 'need_resubmission') {
       router.push({
         pathname: '/submission-screen',
         params: {
-          loanId: loan._id.toString(),
-          schemeName: loan.loanDetailsId.schemeName,
-          amount: loan.sanctionAmount.toString(),
-          referenceId: loan.loanNumber,
+          loanId: loan._id,
+          loanReferenceId: loan.loanNumber,
+          beneficiaryId: '', // Not available in modal, will be fetched in submission screen
+          beneficiaryName: 'N/A',
+          schemeName: loan.loanDetailsId?.name || loan.loanDetailsId?.schemeName || 'N/A',
+          sanctionAmount: loan.sanctionAmount?.toString() || '0',
+          sanctionDate: loan.sanctionDate || new Date().toISOString(),
+          assetType: 'TRACTOR',
+          tenantId: user?.tenantId || '',
         }
       });
     } else {
-      // For track status, navigate to submission status
-      router.push({
-        pathname: '/submission-status',
-        params: {
-          loanId: loan._id.toString(),
-          schemeName: loan.loanDetailsId.schemeName,
-          amount: loan.sanctionAmount.toString(),
-          referenceId: loan.loanNumber,
-        }
-      });
+      // For approved/rejected/other statuses, show submission tracking page
+      const submissionId = await findSubmissionForLoan(loan._id);
+      if (submissionId) {
+        router.push({
+          pathname: '/submission-tracking',
+          params: {
+            submissionId: submissionId,
+          }
+        });
+      } else {
+        // No submission found, log warning
+        console.log('No submission found for this loan');
+      }
     }
   };
 
@@ -201,7 +233,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

@@ -1,7 +1,9 @@
 // apps/mobileapp/contexts/RulesContext.tsx
 import React, { createContext, useContext, useState } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { RuleSet } from '../types/rules';
 import { useAuth } from './AuthContext';
+import { database } from '../database/schema';
 
 interface RulesContextType {
   ruleset: RuleSet | null;
@@ -27,13 +29,111 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Cache ruleset in SQLite
+  const cacheRuleset = async (rulesetData: RuleSet) => {
+    const db = database.getDatabase();
+    if (!db) return;
+
+    try {
+      const now = new Date().toISOString();
+      const rulesetId = rulesetData._id || `ruleset_${Date.now()}`;
+      
+      // Check if ruleset exists
+      const existing = await db.getFirstAsync<{ id: number }>(
+        'SELECT id FROM rulesets WHERE rulesetId = ?',
+        [rulesetId]
+      );
+
+      const rulesJson = JSON.stringify(rulesetData.rules);
+
+      if (existing) {
+        // Update existing ruleset
+        await db.runAsync(
+          `UPDATE rulesets SET 
+            name = ?, description = ?, tenantId = ?,
+            version = ?, rules = ?, isActive = ?, updatedAt = ?
+          WHERE rulesetId = ?`,
+          [
+            rulesetData.name,
+            rulesetData.description || '',
+            rulesetData.tenantId,
+            rulesetData.version || 1,
+            rulesJson,
+            rulesetData.isActive ? 1 : 0,
+            now,
+            rulesetId,
+          ]
+        );
+      } else {
+        // Insert new ruleset
+        await db.runAsync(
+          `INSERT INTO rulesets (
+            rulesetId, name, description, tenantId,
+            version, rules, isActive, createdAt, updatedAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            rulesetId,
+            rulesetData.name,
+            rulesetData.description || '',
+            rulesetData.tenantId,
+            rulesetData.version || 1,
+            rulesJson,
+            rulesetData.isActive ? 1 : 0,
+            now,
+            now,
+          ]
+        );
+      }
+      console.log('[RulesContext] Ruleset cached in SQLite');
+    } catch (error) {
+      console.error('[RulesContext] Error caching ruleset:', error);
+    }
+  };
+
+  // Load ruleset from SQLite cache
+  const loadCachedRuleset = async (): Promise<RuleSet | null> => {
+    const db = database.getDatabase();
+    if (!db) return null;
+
+    try {
+      const cached = await db.getFirstAsync<any>(
+        'SELECT * FROM rulesets WHERE tenantId = ? AND isActive = 1 ORDER BY updatedAt DESC LIMIT 1',
+        [user?.tenantId || '']
+      );
+
+      if (cached) {
+        const rules = JSON.parse(cached.rules);
+        const cachedRuleset: RuleSet = {
+          _id: cached.rulesetId,
+          name: cached.name,
+          description: cached.description,
+          tenantId: cached.tenantId,
+          version: cached.version,
+          rules: rules,
+          isActive: cached.isActive === 1,
+          createdAt: cached.createdAt,
+          updatedAt: cached.updatedAt,
+        };
+        console.log('[RulesContext] Loaded ruleset from cache:', cachedRuleset.name);
+        return cachedRuleset;
+      }
+    } catch (error) {
+      console.error('[RulesContext] Error loading cached ruleset:', error);
+    }
+    return null;
+  };
+
   const fetchRuleset = async (loanId?: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // If loanId is provided, fetch ruleset from API
-      if (loanId) {
+      // Check network status
+      const networkState = await NetInfo.fetch();
+      const isOnline = networkState.isConnected && networkState.isInternetReachable;
+
+      if (isOnline && loanId) {
+        // Fetch from API when online
         const { getLoanWithRuleset } = await import('../api/loansService');
         const response = await getLoanWithRuleset(loanId);
         
@@ -52,20 +152,40 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
             updatedAt: fetchedRuleset.updatedAt,
           };
           setRuleset(mappedRuleset);
+          
+          // Cache to SQLite
+          await cacheRuleset(mappedRuleset);
+          
           console.log('[RulesContext] Fetched ruleset from API:', mappedRuleset.name);
           return;
-        } else {
-          console.warn('[RulesContext] No ruleset found in API response, using default');
         }
       }
       
-      // Fallback to default ruleset for offline/development
+      // Try loading from cache (offline or API failed)
+      const cachedRuleset = await loadCachedRuleset();
+      if (cachedRuleset) {
+        setRuleset(cachedRuleset);
+        console.log('[RulesContext] Using cached ruleset');
+        return;
+      }
+      
+      // Final fallback to default ruleset
       console.log('[RulesContext] Using default ruleset');
-      setRuleset(getDefaultRuleset());
+      const defaultRuleset = getDefaultRuleset();
+      setRuleset(defaultRuleset);
+      
+      // Cache default ruleset for future offline use
+      await cacheRuleset(defaultRuleset);
     } catch (err) {
       console.error('[RulesContext] Error fetching ruleset:', err);
-      // Fallback to default ruleset
-      setRuleset(getDefaultRuleset());
+      
+      // Try cache on error
+      const cachedRuleset = await loadCachedRuleset();
+      if (cachedRuleset) {
+        setRuleset(cachedRuleset);
+      } else {
+        setRuleset(getDefaultRuleset());
+      }
       setError(null); // Don't show error if we have fallback
     } finally {
       setIsLoading(false);

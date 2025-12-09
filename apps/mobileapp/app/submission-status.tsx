@@ -198,14 +198,6 @@ export default function SubmissionStatusScreen() {
       {/* Statistics Cards */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
-            <Clock size={20} color="#f59e0b" strokeWidth={2} />
-          </View>
-          <Text style={styles.statValue}>{stats.pending}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-        
-        <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#D1FAE5' }]}>
             <CheckCircle size={20} color="#10b981" strokeWidth={2} />
           </View>
@@ -308,16 +300,29 @@ export default function SubmissionStatusScreen() {
                     </View>
                   )}
 
-                  {submission.syncStatus === 'FAILED' && (
+                  <View style={styles.actionButtons}>
                     <TouchableOpacity
-                      style={styles.retryButton}
-                      onPress={() => handleRetry(submission)}
+                      style={styles.viewTrackingButton}
+                      onPress={() => router.push({
+                        pathname: '/submission-tracking',
+                        params: { submissionId: submission.localUuid }
+                      })}
                       activeOpacity={0.7}
                     >
-                      <RefreshCw size={16} color="#FC8019" strokeWidth={2} />
-                      <Text style={styles.retryButtonText}>Retry Sync</Text>
+                      <Text style={styles.viewTrackingText}>View Status</Text>
                     </TouchableOpacity>
-                  )}
+
+                    {submission.syncStatus === 'FAILED' && (
+                      <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => handleRetry(submission)}
+                        activeOpacity={0.7}
+                      >
+                        <RefreshCw size={16} color="#FC8019" strokeWidth={2} />
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
                   {submission.syncStatus === 'SYNCED' && submission.remoteId && (
                     <View style={styles.remoteIdContainer}>
@@ -561,6 +566,24 @@ const styles = StyleSheet.create({
     color: '#991b1b',
     lineHeight: 16,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  viewTrackingButton: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewTrackingText: {
+    fontSize: Math.max(14, scale * 15),
+    fontWeight: '600',
+    color: '#fff',
+  },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -569,7 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8F5',
     borderRadius: 8,
     paddingVertical: 10,
-    marginTop: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#FFE5D0',
   },

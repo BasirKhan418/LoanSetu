@@ -84,6 +84,20 @@ export interface Loan {
   assetType: string;
   tenantId?: string;
   submissionId?: number;   // Link to submission if exists
+  verificationStatus?: string; // pending, approved, rejected, resubmission
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Ruleset {
+  id: number;
+  rulesetId: string;       // Backend ruleset ID (unique)
+  name: string;
+  description?: string;
+  tenantId?: string;
+  version: number;
+  rules: string;           // JSON string
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -162,6 +176,7 @@ export class Database {
         assetType TEXT NOT NULL,
         tenantId TEXT,
         submissionId INTEGER,
+        verificationStatus TEXT DEFAULT 'pending',
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         FOREIGN KEY (submissionId) REFERENCES submissions (id) ON DELETE SET NULL
@@ -213,6 +228,22 @@ export class Database {
       );
     `);
 
+    // Create rulesets table for offline validation
+    await this.db.execAsync(`
+      CREATE TABLE IF NOT EXISTS rulesets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rulesetId TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT,
+        tenantId TEXT,
+        version INTEGER DEFAULT 1,
+        rules TEXT NOT NULL,
+        isActive INTEGER DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+    `);
+
     // Create indexes for better query performance
     await this.db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_submissions_syncStatus ON submissions(syncStatus);
@@ -221,6 +252,8 @@ export class Database {
       CREATE INDEX IF NOT EXISTS idx_media_files_submissionId ON media_files(submissionId);
       CREATE INDEX IF NOT EXISTS idx_loans_loanId ON loans(loanId);
       CREATE INDEX IF NOT EXISTS idx_loans_beneficiaryId ON loans(beneficiaryId);
+      CREATE INDEX IF NOT EXISTS idx_rulesets_tenantId ON rulesets(tenantId);
+      CREATE INDEX IF NOT EXISTS idx_rulesets_rulesetId ON rulesets(rulesetId);
     `);
 
     console.log('Database tables created successfully');
@@ -267,6 +300,21 @@ export class Database {
           'ALTER TABLE media_files ADD COLUMN metadata TEXT'
         );
         console.log('Migration completed: metadata column added');
+      }
+
+      // Check if loans table has verificationStatus column
+      const loansInfo = await this.db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(loans)"
+      );
+      
+      const hasVerificationStatus = loansInfo.some(col => col.name === 'verificationStatus');
+      
+      if (!hasVerificationStatus) {
+        console.log('Running migration: Adding verificationStatus column to loans');
+        await this.db.execAsync(
+          "ALTER TABLE loans ADD COLUMN verificationStatus TEXT DEFAULT 'pending'"
+        );
+        console.log('Migration completed: verificationStatus column added');
       }
 
       // Check if media_files table has old CHECK constraint on photoType
