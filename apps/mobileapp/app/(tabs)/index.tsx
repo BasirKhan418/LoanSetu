@@ -1,10 +1,12 @@
+import * as loansService from '@/api/loansService';
+import { LoansModal } from '@/components/LoansModal';
 import { LocationPopup } from '@/components/LocationPopup';
+import { QuickActionModal } from '@/components/QuickActionModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { getTranslation } from '@/utils/translations';
 import { router } from 'expo-router';
-import * as loansService from '@/api/loansService';
 import {
   AlertCircle,
   CheckCircle,
@@ -57,6 +59,21 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Modal states
+  const [loansModalVisible, setLoansModalVisible] = useState(false);
+  const [loansModalData, setLoansModalData] = useState<{
+    loans: Loan[];
+    title: string;
+    type: 'all' | 'amount' | 'approved' | 'pending';
+  }>({ loans: [], title: '', type: 'all' });
+
+  const [quickActionModalVisible, setQuickActionModalVisible] = useState(false);
+  const [quickActionModalData, setQuickActionModalData] = useState<{
+    loans: Loan[];
+    title: string;
+    actionType: 'newApplication' | 'trackStatus';
+  }>({ loans: [], title: '', actionType: 'newApplication' });
 
   // Show location popup on mount if location not set
   useEffect(() => {
@@ -114,13 +131,60 @@ export default function DashboardScreen() {
     pending: loans.filter(l => l.verificationStatus?.toLowerCase() === 'pending' || l.verificationStatus?.toLowerCase() === 'submitted').length
   };
 
-  // Get recent loans (last 3)
-  const submittedLoans = loans.slice(0, 3);
+  // Get recent submissions (not pending) - sorted by most recent
+  const recentSubmissions = loans
+    .filter(l => {
+      const status = l.verificationStatus?.toLowerCase();
+      return status !== 'pending' && status !== 'submitted';
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 3);
+
+  // Get pending applications
+  const pendingApplications = loans.filter(l => {
+    const status = l.verificationStatus?.toLowerCase();
+    return status === 'pending' || status === 'submitted';
+  });
+
+  // Get applications for tracking (all except pending)
+  const trackableApplications = loans.filter(l => {
+    const status = l.verificationStatus?.toLowerCase();
+    return status !== 'pending' && status !== 'submitted';
+  });
+
+  // Handle modal opens
+  const handleOpenLoansModal = (type: 'all' | 'amount' | 'approved' | 'pending', title: string, filteredLoans: Loan[]) => {
+    setLoansModalData({ loans: filteredLoans, title, type });
+    setLoansModalVisible(true);
+  };
+
+  const handleOpenQuickActionModal = (actionType: 'newApplication' | 'trackStatus', title: string, filteredLoans: Loan[]) => {
+    setQuickActionModalData({ loans: filteredLoans, title, actionType });
+    setQuickActionModalVisible(true);
+  };
 
   const quickActions = [
-    { id: 1, title: getTranslation('newApplication', currentLanguage.code), icon: Plus, color: '#FC8019', route: '/applications' },
-    { id: 2, title: getTranslation('trackStatus', currentLanguage.code), icon: Search, color: '#FC8019', route: '/applications' },
-    { id: 3, title: getTranslation('helpSupport', currentLanguage.code), icon: HelpCircle, color: '#FC8019', route: '/profile' },
+    { 
+      id: 1, 
+      title: getTranslation('newApplication', currentLanguage.code), 
+      icon: Plus, 
+      color: '#FC8019', 
+      onPress: () => handleOpenQuickActionModal('newApplication', 'New Applications', pendingApplications)
+    },
+    { 
+      id: 2, 
+      title: getTranslation('trackStatus', currentLanguage.code), 
+      icon: Search, 
+      color: '#FC8019', 
+      onPress: () => handleOpenQuickActionModal('trackStatus', 'Track Status', trackableApplications)
+    },
+    { 
+      id: 3, 
+      title: getTranslation('helpSupport', currentLanguage.code), 
+      icon: HelpCircle, 
+      color: '#FC8019', 
+      onPress: () => router.push('/profile')
+    },
   ];
 
   const getGreeting = () => {
@@ -157,6 +221,24 @@ export default function DashboardScreen() {
   return (
     <>
       <LocationPopup />
+      
+      {/* Modals */}
+      <LoansModal
+        visible={loansModalVisible}
+        onClose={() => setLoansModalVisible(false)}
+        loans={loansModalData.loans}
+        title={loansModalData.title}
+        type={loansModalData.type}
+      />
+
+      <QuickActionModal
+        visible={quickActionModalVisible}
+        onClose={() => setQuickActionModalVisible(false)}
+        loans={quickActionModalData.loans}
+        title={quickActionModalData.title}
+        actionType={quickActionModalData.actionType}
+      />
+
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         
@@ -208,89 +290,116 @@ export default function DashboardScreen() {
         >
           {/* Stats Cards */}
           <View style={styles.statsContainer}>
-            <View style={[styles.statCard, styles.statCardPrimary]}>
+            <TouchableOpacity 
+              style={[styles.statCard, styles.statCardPrimary]}
+              activeOpacity={0.7}
+              onPress={() => handleOpenLoansModal('all', getTranslation('totalApplications', currentLanguage.code), loans)}
+            >
               <View style={styles.statIconContainer}>
                 <FileText size={24} color="#FC8019" strokeWidth={2.5} />
               </View>
               <Text style={styles.statValue}>{stats.totalLoans}</Text>
               <Text style={styles.statLabel}>{getTranslation('totalApplications', currentLanguage.code)}</Text>
-            </View>
+            </TouchableOpacity>
 
-            <View style={styles.statCard}>
+            <TouchableOpacity 
+              style={styles.statCard}
+              activeOpacity={0.7}
+              onPress={() => handleOpenLoansModal('amount', getTranslation('totalAmount', currentLanguage.code), loans)}
+            >
               <View style={styles.statIconContainer}>
                 <TrendingUp size={24} color="#FC8019" strokeWidth={2.5} />
               </View>
               <Text style={styles.statValue}>{stats.totalAmount}</Text>
               <Text style={styles.statLabel}>{getTranslation('totalAmount', currentLanguage.code)}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.statsRow}>
-            <View style={[styles.miniStatCard, { borderLeftColor: '#FC8019' }]}>
+            <TouchableOpacity 
+              style={[styles.miniStatCard, { borderLeftColor: '#FC8019' }]}
+              activeOpacity={0.7}
+              onPress={() => handleOpenLoansModal('approved', getTranslation('approved', currentLanguage.code), loans.filter(l => l.verificationStatus?.toLowerCase() === 'approved'))}
+            >
               <CheckCircle size={20} color="#FC8019" strokeWidth={2} />
               <View style={styles.miniStatContent}>
                 <Text style={styles.miniStatValue}>{stats.approved}</Text>
                 <Text style={styles.miniStatLabel}>{getTranslation('approved', currentLanguage.code)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
-            <View style={[styles.miniStatCard, { borderLeftColor: '#F59E0B' }]}>
+            <TouchableOpacity 
+              style={[styles.miniStatCard, { borderLeftColor: '#F59E0B' }]}
+              activeOpacity={0.7}
+              onPress={() => handleOpenLoansModal('pending', getTranslation('pending', currentLanguage.code), loans.filter(l => {
+                const status = l.verificationStatus?.toLowerCase();
+                return status === 'pending' || status === 'submitted';
+              }))}
+            >
               <Clock size={20} color="#F59E0B" strokeWidth={2} />
               <View style={styles.miniStatContent}>
                 <Text style={styles.miniStatValue}>{stats.pending}</Text>
                 <Text style={styles.miniStatLabel}>{getTranslation('pending', currentLanguage.code)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Submitted Loans */}
+          {/* Recent Submissions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{getTranslation('myApplications', currentLanguage.code)}</Text>
+              <Text style={styles.sectionTitle}>Recent Submissions</Text>
               <TouchableOpacity onPress={() => router.push('/applications')}>
                 <Text style={styles.viewAllText}>{getTranslation('viewAll', currentLanguage.code)}</Text>
               </TouchableOpacity>
             </View>
 
-          {submittedLoans.slice(0, 3).map((loan) => {
-              const StatusIcon = getStatusIcon(loan.verificationStatus || 'pending');
-              return (
-                <TouchableOpacity
-                  key={loan._id}
-                  style={styles.loanCard}
-                  activeOpacity={0.7}
-                  onPress={() => router.push({
-                    pathname: '/loan-verification',
-                    params: {
-                      loanId: loan._id.toString(),
-                      schemeName: loan.loanDetailsId.schemeName,
-                      amount: loan.sanctionAmount.toString(),
-                      referenceId: loan.loanNumber,
-                    }
-                  })}
-                >
-                  <View style={styles.loanCardHeader}>
-                    <View style={styles.loanIconContainer}>
-                      <FileText size={20} color="#FC8019" strokeWidth={2} />
+            {recentSubmissions.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <FileText size={32} color="#D1D5DB" strokeWidth={1.5} />
+                <Text style={styles.emptyText}>No recent submissions</Text>
+                <Text style={styles.emptySubtext}>Submit an application to see it here</Text>
+              </View>
+            ) : (
+              recentSubmissions.map((loan) => {
+                const StatusIcon = getStatusIcon(loan.verificationStatus || 'pending');
+                return (
+                  <TouchableOpacity
+                    key={loan._id}
+                    style={styles.loanCard}
+                    activeOpacity={0.7}
+                    onPress={() => router.push({
+                      pathname: '/submission-status',
+                      params: {
+                        loanId: loan._id.toString(),
+                        schemeName: loan.loanDetailsId.schemeName,
+                        amount: loan.sanctionAmount.toString(),
+                        referenceId: loan.loanNumber,
+                      }
+                    })}
+                  >
+                    <View style={styles.loanCardHeader}>
+                      <View style={styles.loanIconContainer}>
+                        <FileText size={20} color="#FC8019" strokeWidth={2} />
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(loan.verificationStatus || 'pending')}15` }]}>
+                        <StatusIcon size={14} color={getStatusColor(loan.verificationStatus || 'pending')} strokeWidth={2} />
+                        <Text style={[styles.statusText, { color: getStatusColor(loan.verificationStatus || 'pending') }]}>
+                          {getTranslation((loan.verificationStatus || 'pending').toLowerCase(), currentLanguage.code)}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(loan.verificationStatus || 'pending')}15` }]}>
-                      <StatusIcon size={14} color={getStatusColor(loan.verificationStatus || 'pending')} strokeWidth={2} />
-                      <Text style={[styles.statusText, { color: getStatusColor(loan.verificationStatus || 'pending') }]}>
-                        {getTranslation(loan.verificationStatus || 'pending', currentLanguage.code)}
-                      </Text>
+                    
+                    <Text style={styles.loanScheme}>{loan.loanDetailsId.name}</Text>
+                    <Text style={styles.loanAmount}>₹{loan.sanctionAmount.toLocaleString('en-IN')}</Text>
+                    
+                    <View style={styles.loanFooter}>
+                      <Text style={styles.loanReference}>{loan.loanNumber}</Text>
+                      <Text style={styles.loanDate}>{new Date(loan.sanctionDate).toLocaleDateString('en-IN')}</Text>
                     </View>
-                  </View>
-                  
-                  <Text style={styles.loanScheme}>{loan.loanDetailsId.name}</Text>
-                  <Text style={styles.loanAmount}>₹{loan.sanctionAmount.toLocaleString('en-IN')}</Text>
-                  
-                  <View style={styles.loanFooter}>
-                    <Text style={styles.loanReference}>{loan.loanNumber}</Text>
-                    <Text style={styles.loanDate}>{new Date(loan.sanctionDate).toLocaleDateString('en-IN')}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
 
           {/* Quick Actions */}
@@ -304,7 +413,7 @@ export default function DashboardScreen() {
                     key={action.id}
                     style={styles.actionCard}
                     activeOpacity={0.7}
-                    onPress={() => router.push(action.route as any)}
+                    onPress={action.onPress}
                   >
                     <View style={[styles.actionIconContainer]}>
                       <Icon size={24} color={action.color} strokeWidth={2} />
@@ -628,5 +737,30 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     textAlign: 'center',
     lineHeight: 14,
-  }
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  emptySubtext: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
 });

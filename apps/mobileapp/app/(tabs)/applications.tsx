@@ -79,14 +79,18 @@ export default function ApplicationsScreen() {
   );
 
   const handleLoanPress = (loan: Loan) => {
-    const formattedAmount = `₹${(loan.sanctionAmount || 0).toLocaleString('en-IN')}`;
     router.push({
-      pathname: '/loan-verification',
+      pathname: '/submission-screen',
       params: {
         loanId: loan._id,
+        loanReferenceId: loan.loanNumber,
+        beneficiaryId: loan.beneficiaryId?._id || '',
+        beneficiaryName: loan.beneficiaryId?.name || 'N/A',
         schemeName: loan.loanDetailsId?.name || 'N/A',
-        amount: formattedAmount,
-        referenceId: loan.loanNumber,
+        sanctionAmount: loan.sanctionAmount?.toString() || '0',
+        sanctionDate: loan.sanctionDate || new Date().toISOString(),
+        assetType: 'TRACTOR',
+        tenantId: user?.tenantId || '',
       }
     });
   };

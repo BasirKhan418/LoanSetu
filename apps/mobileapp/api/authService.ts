@@ -116,7 +116,7 @@ export async function verifyOTP(
 
 /**
  * Update user profile information
- * @param userId - User's ID
+ * @param userId - User's ID (not used in new endpoint, token identifies user)
  * @param updateFields - Fields to update
  * @param token - Authentication token
  * @returns Promise with update status
@@ -127,15 +127,12 @@ export async function updateUserProfile(
   token: string
 ): Promise<ApiResponse> {
   try {
-    const response = await apiRequest(API_ENDPOINTS.AUTH.USER_AUTH, {
+    const response = await apiRequest(API_ENDPOINTS.AUTH.ME, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        _id: userId,
-        ...updateFields,
-      }),
+      body: JSON.stringify(updateFields),
     });
 
     return response;
@@ -144,6 +141,30 @@ export async function updateUserProfile(
     return {
       success: false,
       message: 'Failed to update profile. Please try again.',
+    };
+  }
+}
+
+/**
+ * Get current user profile
+ * @param token - Authentication token
+ * @returns Promise with user data
+ */
+export async function getCurrentUser(token: string): Promise<ApiResponse<User>> {
+  try {
+    const response = await apiRequest<User>(API_ENDPOINTS.AUTH.ME, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Get Current User Error:', error);
+    return {
+      success: false,
+      message: 'Failed to fetch user profile. Please try again.',
     };
   }
 }

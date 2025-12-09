@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   AUTH: {
     USER_AUTH: '/api/userauth',
     VALIDATE_OTP: '/api/userauth/validate',
+    ME: '/api/me', // Current user endpoints
   },
   // Add more endpoints as needed
 };
@@ -66,7 +67,6 @@ export async function apiRequest<T = any>(
 
     return data;
   } catch (error) {
-    console.error('API Request Error:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Network error occurred',

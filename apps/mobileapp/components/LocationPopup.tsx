@@ -41,9 +41,12 @@ export function LocationPopup() {
         'Your home/business location has been saved successfully!',
         [{ text: 'OK' }]
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving location:', error);
-      Alert.alert('Error', 'Failed to save location. Please try again.');
+      Alert.alert(
+        'Error', 
+        error?.message || 'Failed to save location. Please check your internet connection and try again.'
+      );
     } finally {
       setIsLoading(false);
     }
