@@ -17,19 +17,33 @@ class MediaItem(BaseModel):
     isPrintedPhotoSuspect: Optional[bool] = None
 
 
+class LoanDetailsModel(BaseModel):
+    assetType: str
+    sanctionDate: Optional[str] = None
+    sanctionAmount: Optional[float] = None
+    minAmount: Optional[float] = None
+    maxAmount: Optional[float] = None
+
+
+class GPSModel(BaseModel):
+    gpsLat: Optional[float] = None
+    gpsLng: Optional[float] = None
+
+
 class SubmissionPayload(BaseModel):
     submissionId: str
     loanId: str
     tenantId: str
+    rullsetid: Optional[str] = None
 
     # Full RuleSet doc from your backend
     rullset: Dict[str, Any]
 
     # LoanDetails object from your backend
-    loanDetails: Dict[str, Any]
+    loanDetails: LoanDetailsModel
 
-    # GPS from device (app)
-    gps: Dict[str, float]  # { "lat": ..., "lng": ... }
+    # GPS from first media item with GPS or device
+    gps: GPSModel
 
     # Optional: loan sanction date (ISO string), invoice expectations etc.
     sanctionDate: Optional[str] = None

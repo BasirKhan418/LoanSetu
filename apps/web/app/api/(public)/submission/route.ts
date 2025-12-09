@@ -4,9 +4,11 @@ import { validationQueue } from "../../../../lib/email-queue";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
 import ConnectDb from "../../../../middleware/connectDb";
 import { headers } from "next/headers";
-import Loans from "../../../../models/Loans";
+
 import LoanDetails from "../../../../models/LoanDetails";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
+import Loans from "../../../../models/Loans";
+import RullSet from "../../../../models/Rullset";
 export const runtime = "nodejs";
 export const GET = async (req: NextRequest) => {
     try{
@@ -59,6 +61,10 @@ if(!loandata){
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
         await (Loans as any).findByIdAndUpdate(data.loanId as any,{status:"UNDER_REVIEW"}as any);
+        const newdata = await (Submission as any).findById(newsubmission._id as any).populate({ path: "loanDetailsId", model: "LoanDetails" }).populate({ path: "loanId", model: "Loans" });
+        const findruleset = await RullSet.findOne({ _id: newdata.loanDetailsId.rullsetid } as any);
+        const alladata = {...newdata.toObject(),ruleset:findruleset};
+
         
         // 🔗 LEDGER: Record submission creation
         try {
@@ -79,7 +85,7 @@ if(!loandata){
         
         const job = await validationQueue.add(
       "validate user submission", // job name
-      { submission: newsubmission }, // job data
+      { submission: alladata }, // job data
       {
         attempts: 3,
         backoff: {
@@ -91,7 +97,7 @@ if(!loandata){
       }
     );
         //add details in queue it will take and process later
-        return NextResponse.json({message:"Submission created successfully",data:newsubmission,success:true});
+        return NextResponse.json({message:"Submission created successfully",data:alladata,success:true});
     }
     catch(err:any){
         return NextResponse.json(
