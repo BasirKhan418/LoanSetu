@@ -1,0 +1,109 @@
+{
+  "info": {
+    "name": "Validation Engine Test",
+    "_postman_id": "validation-engine-test-001",
+    "description": "Test collection for AI Validation Engine",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            ""
+          ]
+        },
+        "description": "Check if the validation engine is running"
+      },
+      "response": []
+    },
+    {
+      "name": "Validate Submission",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"submissionId\": \"69378ec386bfc38577e38128\",\n  \"loanId\": \"6937457a70e01611b023577e\",\n  \"tenantId\": \"6932e9e9d1c65c91b68a771a\",\n  \"rullset\": {\n    \"_id\": \"6935b183fa1422e216152b26\",\n    \"name\": \"Default Ruleset\",\n    \"imageQuality\": {\n      \"min_resolution\": {\n        \"width\": 800,\n        \"height\": 600\n      },\n      \"max_blur_variance\": 120,\n      \"reject_screenshots\": true,\n      \"reject_printed_photos\": true\n    },\n    \"gpsVerification\": {\n      \"max_distance_meters\": 500\n    },\n    \"duplicateDetection\": {\n      \"enabled\": true,\n      \"threshold\": 5\n    },\n    \"ocrValidation\": {\n      \"enabled\": true,\n      \"min_confidence\": 0.7\n    }\n  },\n  \"loanDetails\": {\n    \"_id\": \"6935ce7d8a61ccf194c5020e\",\n    \"loanAmount\": 50000,\n    \"sanctionedAmount\": 50000,\n    \"purpose\": \"Business Equipment\",\n    \"expectedLocation\": {\n      \"lat\": 28.7531175,\n      \"lng\": 77.4972601\n    }\n  },\n  \"gps\": {\n    \"lat\": 28.7531175,\n    \"lng\": 77.4972601\n  },\n  \"sanctionDate\": \"2025-12-01T00:00:00.000Z\",\n  \"expectedInvoiceAmount\": 50000,\n  \"media\": [\n    {\n      \"type\": \"IMAGE\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248706469-3c697b1f-eb68-4917-b084-30a2f68f6a1a.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 1384503,\n      \"capturedAt\": \"2025-12-09T02:50:42.312Z\",\n      \"gpsLat\": 28.7531175,\n      \"gpsLng\": 77.4972601,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    },\n    {\n      \"type\": \"IMAGE\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248707047-0f51a1a0-111b-4a1a-9a78-1bde993a6c9e.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 1350790,\n      \"capturedAt\": \"2025-12-09T02:50:48.483Z\",\n      \"gpsLat\": 28.7531074,\n      \"gpsLng\": 77.4972578,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    },\n    {\n      \"type\": \"IMAGE\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248707234-8e114524-49dc-4862-b296-d43fc22b45f5.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 1236062,\n      \"capturedAt\": \"2025-12-09T02:50:53.152Z\",\n      \"gpsLat\": 28.7531074,\n      \"gpsLng\": 77.4972578,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    },\n    {\n      \"type\": \"IMAGE\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248707402-379508d9-624c-429b-a11c-e7fc1a7ebce4.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 1254961,\n      \"capturedAt\": \"2025-12-09T02:50:58.511Z\",\n      \"gpsLat\": 28.7531113,\n      \"gpsLng\": 77.4972813,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    },\n    {\n      \"type\": \"VIDEO\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248707594-0b9dda27-1a56-487a-bebf-6115819e0067.mp4\",\n      \"mimeType\": \"video/mp4\",\n      \"sizeInBytes\": 16089736,\n      \"capturedAt\": \"2025-12-09T02:51:20.145Z\",\n      \"gpsLat\": 28.7531138,\n      \"gpsLng\": 77.4972699,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    },\n    {\n      \"type\": \"DOCUMENT\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248707757-eafe6315-4003-4135-9a8e-546b609dcee5.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 2013088,\n      \"capturedAt\": \"2025-12-09T02:51:25.445Z\",\n      \"gpsLat\": 28.7531184,\n      \"gpsLng\": 77.4972551,\n      \"hasExif\": false,\n      \"hasGpsExif\": true,\n      \"isScreenshot\": false,\n      \"isPrintedPhotoSuspect\": false\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/validate/",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "validate",
+            ""
+          ]
+        },
+        "description": "Validate a submission with AI fraud detection"
+      },
+      "response": []
+    },
+    {
+      "name": "Validate Submission - Minimal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"submissionId\": \"test-submission-001\",\n  \"loanId\": \"test-loan-001\",\n  \"tenantId\": \"test-tenant-001\",\n  \"rullset\": {\n    \"imageQuality\": {\n      \"min_resolution\": {\n        \"width\": 800,\n        \"height\": 600\n      },\n      \"max_blur_variance\": 120,\n      \"reject_screenshots\": true,\n      \"reject_printed_photos\": true\n    },\n    \"gpsVerification\": {\n      \"max_distance_meters\": 500\n    },\n    \"duplicateDetection\": {\n      \"enabled\": true,\n      \"threshold\": 5\n    }\n  },\n  \"loanDetails\": {\n    \"loanAmount\": 50000,\n    \"expectedLocation\": {\n      \"lat\": 28.7531175,\n      \"lng\": 77.4972601\n    }\n  },\n  \"gps\": {\n    \"lat\": 28.7531175,\n    \"lng\": 77.4972601\n  },\n  \"media\": [\n    {\n      \"type\": \"IMAGE\",\n      \"fileKey\": \"https://jogaadindiaassets.s3.ap-south-1.amazonaws.com/1765248706469-3c697b1f-eb68-4917-b084-30a2f68f6a1a.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeInBytes\": 1384503,\n      \"gpsLat\": 28.7531175,\n      \"gpsLng\": 77.4972601\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/validate/",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "validate",
+            ""
+          ]
+        },
+        "description": "Minimal validation request for quick testing"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}

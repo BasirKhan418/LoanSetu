@@ -27,9 +27,11 @@ def run_forensics_checks(media: List[MediaItem], image_quality_rules: Dict):
 
         local_path = None
         try:
+            print(f"[DEBUG] Downloading image from fileKey: {m.fileKey}")
             local_path = download_from_s3_to_temp(m.fileKey)
             img = cv2.imread(local_path)
             if img is None:
+                print(f"[WARNING] Failed to read image from {local_path}")
                 continue
 
             h, w, _ = img.shape
