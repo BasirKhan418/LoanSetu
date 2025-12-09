@@ -67,27 +67,6 @@ export function StateOfficerSidebar({ open, setOpen, officerData }: StateOfficer
         <IconClipboardCheck className="h-5 w-5 shrink-0 text-neutral-700" />
       ),
     },
-    {
-      label: "Approved",
-      href: "/stateofficer/approved",
-      icon: (
-        <IconFileCheck className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Profile",
-      href: "/stateofficer/profile",
-      icon: (
-        <IconUser className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
-    {
-      label: "Settings",
-      href: "/stateofficer/settings",
-      icon: (
-        <IconSettings className="h-5 w-5 shrink-0 text-neutral-700" />
-      ),
-    },
   ];
 
   return (

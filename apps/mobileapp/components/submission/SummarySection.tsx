@@ -2,9 +2,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useRuleset } from '../../contexts/RulesContext';
 import { useSubmission } from '../../contexts/SubmissionContext';
 import { ValidationResult } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 
 interface SummarySectionProps {
   validationResult: ValidationResult | null;
@@ -15,6 +17,7 @@ interface SummarySectionProps {
 export function SummarySection({ validationResult, isSubmitting }: SummarySectionProps) {
   const { submissionState } = useSubmission();
   const { ruleset } = useRuleset();
+  const { currentLanguage } = useLanguage();
 
   if (!ruleset) return null;
 
@@ -28,26 +31,26 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
 
   const checks = [
     {
-      label: 'Photos',
+      label: getTranslation('photos', currentLanguage.code),
       required: rules.media_requirements?.min_photos || 0,
       current: photos.length,
       status: photos.length >= (rules.media_requirements?.min_photos || 0),
     },
     {
-      label: 'Video',
+      label: getTranslation('video', currentLanguage.code),
       required: rules.media_requirements?.min_video_seconds || 0,
       current: Math.floor(totalVideoSeconds),
       status: totalVideoSeconds >= (rules.media_requirements?.min_video_seconds || 0),
       unit: 's',
     },
     {
-      label: 'Invoice',
+      label: getTranslation('invoice', currentLanguage.code),
       required: rules.document_rules?.require_invoice ? 1 : 0,
       current: invoices.length,
       status: !rules.document_rules?.require_invoice || invoices.length > 0,
     },
     {
-      label: 'GPS Location',
+      label: getTranslation('gpsLocation', currentLanguage.code),
       required: 1,
       current: submissionState.currentLocation ? 1 : 0,
       status: submissionState.currentLocation !== null,
@@ -61,7 +64,7 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Verification Summary</Text>
+        <Text style={styles.title}>{getTranslation('verificationSummary', currentLanguage.code)}</Text>
         <View style={[styles.progressBadge, allChecked && styles.progressBadgeComplete]}>
           <Text style={styles.progressText}>{Math.round(completionPercentage)}%</Text>
         </View>
@@ -90,7 +93,7 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
             )}
             {check.hideCount && (
               <Text style={[styles.checkStatus, check.status && styles.checkStatusSuccess]}>
-                {check.status ? 'Acquired' : 'Pending'}
+                {check.status ? getTranslation('acquired', currentLanguage.code) : getTranslation('pending', currentLanguage.code)}
               </Text>
             )}
           </View>
@@ -103,8 +106,7 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
           <View style={styles.errorsHeader}>
             <Ionicons name="alert-circle" size={20} color="#DC2626" />
             <Text style={styles.errorsTitle}>
-              {validationResult.errors.length} Error{validationResult.errors.length > 1 ? 's' : ''}{' '}
-              Found
+              {validationResult.errors.length} {getTranslation(validationResult.errors.length > 1 ? 'errorsFound' : 'errorFound', currentLanguage.code)}
             </Text>
           </View>
           {validationResult.errors.map((error, index) => (
@@ -122,7 +124,7 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
           <View style={styles.warningsHeader}>
             <Ionicons name="warning" size={20} color="#FF9500" />
             <Text style={styles.warningsTitle}>
-              {validationResult.warnings.length} Warning{validationResult.warnings.length > 1 ? 's' : ''}
+              {validationResult.warnings.length} {getTranslation(validationResult.warnings.length > 1 ? 'warnings' : 'warning', currentLanguage.code)}
             </Text>
           </View>
           {validationResult.warnings.map((warning, index) => (
@@ -138,7 +140,7 @@ export function SummarySection({ validationResult, isSubmitting }: SummarySectio
       {allChecked && !isSubmitting && (
         <View style={styles.successBox}>
           <Ionicons name="checkmark-circle" size={24} color="#059669" />
-          <Text style={styles.successText}>Ready to submit!</Text>
+          <Text style={styles.successText}>{getTranslation('readyToSubmit', currentLanguage.code)}</Text>
         </View>
       )}
     </View>

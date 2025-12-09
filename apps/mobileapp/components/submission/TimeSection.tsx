@@ -2,7 +2,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { TimeRules } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 import { daysBetween } from '../../utils/validation';
 
 interface TimeSectionProps {
@@ -11,6 +13,7 @@ interface TimeSectionProps {
 }
 
 export function TimeSection({ rules, sanctionDate }: TimeSectionProps) {
+  const { currentLanguage } = useLanguage();
   const today = new Date().toISOString();
   const daysSinceSanction = daysBetween(sanctionDate, today);
   const sanctionInFuture = new Date(sanctionDate) > new Date(today);
@@ -31,7 +34,7 @@ export function TimeSection({ rules, sanctionDate }: TimeSectionProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Time Window</Text>
+        <Text style={styles.title}>{rules.label || getTranslation('timeWindow', currentLanguage.code)}</Text>
         <Ionicons
           name={isValid ? 'checkmark-circle' : 'alert-circle'}
           size={24}
@@ -39,32 +42,37 @@ export function TimeSection({ rules, sanctionDate }: TimeSectionProps) {
         />
       </View>
 
+      {/* Dynamic Description */}
+      {rules.description && (
+        <Text style={styles.description}>{rules.description}</Text>
+      )}
+
       <View style={styles.dateBox}>
         <View style={styles.dateRow}>
-          <Text style={styles.dateLabel}>Sanction Date:</Text>
+          <Text style={styles.dateLabel}>{getTranslation('sanctionDate', currentLanguage.code)}</Text>
           <Text style={styles.dateValue}>{formatDate(sanctionDate)}</Text>
         </View>
         <View style={styles.dateRow}>
-          <Text style={styles.dateLabel}>Today:</Text>
+          <Text style={styles.dateLabel}>{getTranslation('today', currentLanguage.code)}</Text>
           <Text style={styles.dateValue}>{formatDate(today)}</Text>
         </View>
         <View style={styles.dateRow}>
-          <Text style={styles.dateLabel}>Days Elapsed:</Text>
+          <Text style={styles.dateLabel}>{getTranslation('daysElapsed', currentLanguage.code)}</Text>
           <Text style={[styles.dateValue, styles.daysBold]}>
-            {sanctionInFuture ? '0' : daysSinceSanction} days
+            {sanctionInFuture ? '0' : daysSinceSanction} {getTranslation('days', currentLanguage.code)}
           </Text>
         </View>
       </View>
 
       <View style={styles.ruleBox}>
-        <Text style={styles.ruleTitle}>Verification Window</Text>
+        <Text style={styles.ruleTitle}>{getTranslation('verificationWindow', currentLanguage.code)}</Text>
         <Text style={styles.ruleText}>
-          • Verification must be completed within{' '}
-          <Text style={styles.ruleBold}>{rules.max_days_after_sanction} days</Text> of sanction
+          • {getTranslation('verificationMustBeCompleted', currentLanguage.code)}{' '}
+          <Text style={styles.ruleBold}>{rules.max_days_after_sanction} {getTranslation('days', currentLanguage.code)}</Text> {getTranslation('ofSanction', currentLanguage.code)}
         </Text>
         {!rules.allow_before_sanction && (
           <Text style={styles.ruleText}>
-            • Verification before sanction date is not allowed
+            • {getTranslation('verificationBeforeSanctionNotAllowed', currentLanguage.code)}
           </Text>
         )}
       </View>
@@ -87,10 +95,10 @@ export function TimeSection({ rules, sanctionDate }: TimeSectionProps) {
           ]}
         >
           {sanctionInFuture
-            ? 'Sanction date is in the future'
+            ? getTranslation('sanctionDateInFuture', currentLanguage.code)
             : isValid
-            ? 'Within allowed time window'
-            : `Time window expired (${daysSinceSanction - rules.max_days_after_sanction} days overdue)`}
+            ? getTranslation('withinAllowedTimeWindow', currentLanguage.code)
+            : `${getTranslation('timeWindowExpired', currentLanguage.code)} (${daysSinceSanction - rules.max_days_after_sanction} ${getTranslation('daysOverdue', currentLanguage.code)})`}
         </Text>
       </View>
     </View>
@@ -123,6 +131,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  description: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 18,
   },
   dateBox: {
     backgroundColor: '#F9FAFB',

@@ -197,6 +197,9 @@ export class SyncService {
         let parsedMetadata = null;
         try {
           parsedMetadata = mediaFile.metadata ? JSON.parse(mediaFile.metadata) : null;
+          if (parsedMetadata) {
+            console.log('✅ EXIF metadata found for file:', mediaFile.localPath);
+          }
         } catch (e) {
           console.warn('Failed to parse metadata:', e);
         }
@@ -217,14 +220,16 @@ export class SyncService {
           apiType = 'DOCUMENT';
         }
 
-        // Ensure timestamp is in ISO format
+        // Convert timestamp to IST (Indian Standard Time - UTC+5:30)
         let capturedAt = mediaFile.timestamp;
-        if (capturedAt && !capturedAt.endsWith('Z') && !capturedAt.includes('+')) {
-          // If timestamp doesn't have timezone info, assume UTC
-          capturedAt = new Date(capturedAt).toISOString();
+        if (capturedAt) {
+          const utcDate = new Date(capturedAt);
+          // Add 5 hours 30 minutes for IST
+          const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+          capturedAt = istDate.toISOString();
         }
 
-        mediaArray.push({
+        const mediaItem: any = {
           type: apiType,
           fileKey: fileKey,
           mimeType: mediaFile.mimeType || 'image/jpeg',
@@ -236,14 +241,28 @@ export class SyncService {
           hasGpsExif: !!(mediaFile.geoLat && mediaFile.geoLng),
           isScreenshot: false,
           isPrintedPhotoSuspect: false,
-        });
+        };
+
+        // Add EXIF data if available
+        if (parsedMetadata) {
+          mediaItem.exifData = parsedMetadata;
+          console.log('📋 Including EXIF data in media item');
+        }
+
+        mediaArray.push(mediaItem);
       }
 
-      // Ensure submission timestamps are in ISO format
+      // Convert submission timestamps to IST (Indian Standard Time - UTC+5:30)
       let submittedAt = submission.createdAt;
-      if (submittedAt && !submittedAt.endsWith('Z') && !submittedAt.includes('+')) {
-        submittedAt = new Date(submittedAt).toISOString();
+      if (submittedAt) {
+        const utcDate = new Date(submittedAt);
+        const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+        submittedAt = istDate.toISOString();
       }
+
+      // Convert current time to IST for syncedAt
+      const currentUtc = new Date();
+      const syncedAtIST = new Date(currentUtc.getTime() + (5.5 * 60 * 60 * 1000));
 
       // Prepare submission data matching API expectations
       const submissionData: any = {
@@ -261,7 +280,7 @@ export class SyncService {
           isOffline: isOffline,
           networkType: networkType,
           submittedAt: submittedAt,
-          syncedAt: new Date().toISOString(),
+          syncedAt: syncedAtIST.toISOString(),
         },
       };
 
@@ -295,7 +314,6 @@ export class SyncService {
           throw new Error(`Server error: ${errorText}`);
         }
       }
-
       const result = await response.json();
       
       // Mark as synced with remote ID

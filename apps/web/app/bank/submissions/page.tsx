@@ -466,16 +466,26 @@ export default function BankSubmissions() {
                         {new Date(submission.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => {
-                            setSelectedSubmission(submission);
-                            setShowReviewModal(true);
-                          }}
-                          className="text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
-                        >
-                          <IconEdit className="h-4 w-4" />
-                          Review
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => router.push(`/bank/submissions/${submission._id}`)}
+                            className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                            title="View AI Analysis Details"
+                          >
+                            <IconEye className="h-4 w-4" />
+                            View
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedSubmission(submission);
+                              setShowReviewModal(true);
+                            }}
+                            className="text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                          >
+                            <IconEdit className="h-4 w-4" />
+                            Review
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

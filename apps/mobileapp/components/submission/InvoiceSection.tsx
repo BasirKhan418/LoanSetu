@@ -3,8 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useSubmission } from '../../contexts/SubmissionContext';
 import { DocumentRules } from '../../types/rules';
+import { getTranslation } from '../../utils/translations';
 import { Button } from '../ui/button';
 
 interface InvoiceSectionProps {
@@ -12,7 +14,13 @@ interface InvoiceSectionProps {
 }
 
 export function InvoiceSection({ rules }: InvoiceSectionProps) {
+  const { currentLanguage } = useLanguage();
   const { submissionState, removeMedia } = useSubmission();
+
+  // Don't render if invoice is not required
+  if (!rules.require_invoice) {
+    return null;
+  }
 
   const invoices = submissionState.media.filter((m) => m.type === 'DOCUMENT');
   const hasInvoice = invoices.length > 0;
@@ -20,12 +28,12 @@ export function InvoiceSection({ rules }: InvoiceSectionProps) {
 
   const handleRemoveInvoice = (localId: string) => {
     Alert.alert(
-      'Remove Invoice',
-      'Are you sure you want to remove this invoice?',
+      getTranslation('removeInvoice', currentLanguage.code),
+      getTranslation('areYouSureRemoveInvoice', currentLanguage.code),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: getTranslation('cancel', currentLanguage.code), style: 'cancel' },
         {
-          text: 'Remove',
+          text: getTranslation('remove', currentLanguage.code),
           style: 'destructive',
           onPress: () => removeMedia(localId),
         },
@@ -36,18 +44,22 @@ export function InvoiceSection({ rules }: InvoiceSectionProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Invoice</Text>
+        <Text style={styles.title}>
+          {rules.label || rules.document_label || getTranslation('invoice', currentLanguage.code)}
+        </Text>
         {rules.require_invoice && (
           <View style={[styles.badge, hasInvoice ? styles.badgeSuccess : styles.badgeError]}>
             <Text style={styles.badgeText}>
-              {hasInvoice ? `${invoiceCount} Captured` : 'Required'}
+              {hasInvoice 
+                ? `${invoiceCount} ${getTranslation('captured', currentLanguage.code)}` 
+                : getTranslation('required', currentLanguage.code)}
             </Text>
           </View>
         )}
       </View>
 
       <Text style={styles.subtitle}>
-        Capture clear photos of the purchase invoice(s). At least one invoice is required. You can add multiple invoices if needed.
+        {rules.description || 'Capture clear photos of the purchase invoice(s). At least one invoice is required. You can add multiple invoices if needed.'}
       </Text>
 
       {/* Invoice Preview */}
@@ -73,7 +85,9 @@ export function InvoiceSection({ rules }: InvoiceSectionProps) {
       ) : (
         <View style={styles.placeholder}>
           <Ionicons name="document-text-outline" size={48} color="#CCC" />
-          <Text style={styles.placeholderText}>No invoice captured yet</Text>
+          <Text style={styles.placeholderText}>
+            {getTranslation('noInvoiceCaptured', currentLanguage.code)}
+          </Text>
         </View>
       )}
 
@@ -82,13 +96,15 @@ export function InvoiceSection({ rules }: InvoiceSectionProps) {
         onPress={() => {
           router.push({
             pathname: '/camera-screen',
-            params: { mode: 'PHOTO', label: 'Capture Invoice', photoType: 'invoice' }
+            params: { mode: 'PHOTO', label: getTranslation('captureInvoice', currentLanguage.code), photoType: 'invoice' }
           });
         }}
         style={styles.captureButton}
       >
         <Ionicons name="camera" size={20} color="#FFF" style={styles.buttonIcon} />
-        {hasInvoice ? 'Add More Invoice' : 'Capture Invoice'}
+        {hasInvoice 
+          ? getTranslation('addMoreInvoice', currentLanguage.code) 
+          : getTranslation('captureInvoice', currentLanguage.code)}
       </Button>
 
       {/* OCR Information */}
@@ -96,15 +112,21 @@ export function InvoiceSection({ rules }: InvoiceSectionProps) {
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={18} color="#FC8019" />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Invoice Verification</Text>
+            <Text style={styles.infoTitle}>
+              {getTranslation('invoiceVerification', currentLanguage.code)}
+            </Text>
             <Text style={styles.infoText}>
-              The invoice will be automatically analyzed to verify:
+              {getTranslation('invoiceVerificationDesc', currentLanguage.code)}
             </Text>
             {rules.invoice_ocr_match_amount && (
-              <Text style={styles.infoItem}>• Amount matches sanctioned amount</Text>
+              <Text style={styles.infoItem}>
+                • {getTranslation('amountMatchesSanctioned', currentLanguage.code)}
+              </Text>
             )}
             {rules.invoice_ocr_match_date && (
-              <Text style={styles.infoItem}>• Date is within allowed period</Text>
+              <Text style={styles.infoItem}>
+                • {getTranslation('dateWithinAllowedPeriod', currentLanguage.code)}
+              </Text>
             )}
           </View>
         </View>

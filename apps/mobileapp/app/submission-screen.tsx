@@ -7,10 +7,12 @@ import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOp
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCustomAlert } from '../components/CustomAlert';
 import { DESIGN_SYSTEM, getTabBarHeight } from '../constants/designSystem';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useRuleset } from '../contexts/RulesContext';
 import { useSubmission } from '../contexts/SubmissionContext';
 import { ValidationResult } from '../types/rules';
 import { LoanDetails } from '../types/submission';
+import { getTranslation } from '../utils/translations';
 import { validateSubmission } from '../utils/validation';
 
 // Section imports (we'll create these next)
@@ -25,11 +27,13 @@ export default function SubmissionScreen() {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { currentLanguage } = useLanguage();
   const { ruleset, isLoading: rulesLoading, fetchRuleset } = useRuleset();
   const {
     submissionState,
     initializeSubmission,
     saveToSQLite,
+    resetSubmission,
     isLoading: submissionLoading,
   } = useSubmission();
 
@@ -40,10 +44,17 @@ export default function SubmissionScreen() {
   const tabBarHeight = getTabBarHeight(insets.bottom);
 
   useEffect(() => {
-    // Fetch ruleset on mount
-    fetchRuleset();
+    // Fetch ruleset with loanId when available
+    const loanId = params.loanId as string;
+    if (loanId) {
+      console.log('[SubmissionScreen] Fetching ruleset for loanId:', loanId);
+      fetchRuleset(loanId);
+    } else {
+      // Fallback to default ruleset if no loanId
+      fetchRuleset();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params.loanId]);
 
   useEffect(() => {
     // Initialize submission with loan details from params
@@ -127,7 +138,10 @@ export default function SubmissionScreen() {
           {
             text: 'OK',
             style: 'default',
-            onPress: () => router.back(),
+            onPress: () => {
+              resetSubmission(); // Clear form data
+              router.back();
+            },
           },
         ]
       );
@@ -152,7 +166,9 @@ export default function SubmissionScreen() {
           style={StyleSheet.absoluteFill}
         />
         <ActivityIndicator size="large" color={DESIGN_SYSTEM.colors.primary} />
-        <Text style={styles.loadingText}>Loading verification rules...</Text>
+        <Text style={styles.loadingText}>
+          {getTranslation('loadingVerificationRules', currentLanguage.code)}
+        </Text>
       </View>
     );
   }
@@ -174,7 +190,9 @@ export default function SubmissionScreen() {
               <ArrowLeft size={22} color="#1F2937" strokeWidth={2.5} />
             </TouchableOpacity>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Verification Form</Text>
+              <Text style={styles.headerTitle}>
+                {getTranslation('verificationForm', currentLanguage.code)}
+              </Text>
               <Text style={styles.headerSubtitle}>{ruleset.name}</Text>
             </View>
           </View>
@@ -193,7 +211,9 @@ export default function SubmissionScreen() {
                   <FileText size={18} color="#FC8019" strokeWidth={2} />
                 </View>
                 <View style={styles.loanHeaderText}>
-                  <Text style={styles.loanCardTitle}>Loan Information</Text>
+                  <Text style={styles.loanCardTitle}>
+                    {getTranslation('loanInformation', currentLanguage.code)}
+                  </Text>
                   <Text style={styles.loanCardSubtitle}>
                     {submissionState.loanDetails.loanReferenceId}
                   </Text>
@@ -210,13 +230,17 @@ export default function SubmissionScreen() {
                 <View style={styles.loanGrid}>
                   <View style={styles.loanGridRow}>
                     <View style={styles.loanGridItem}>
-                      <Text style={styles.loanLabel}>Beneficiary</Text>
+                      <Text style={styles.loanLabel}>
+                        {getTranslation('beneficiary', currentLanguage.code)}
+                      </Text>
                       <Text style={styles.loanValue} numberOfLines={1}>
                         {submissionState.loanDetails.beneficiaryName}
                       </Text>
                     </View>
                     <View style={styles.loanGridItem}>
-                      <Text style={styles.loanLabel}>Sanctioned Amount</Text>
+                      <Text style={styles.loanLabel}>
+                        {getTranslation('sanctionedAmount', currentLanguage.code)}
+                      </Text>
                       <Text style={[styles.loanValue, styles.loanAmount]}>
                         ₹{submissionState.loanDetails.sanctionAmount.toLocaleString('en-IN')}
                       </Text>
@@ -225,13 +249,17 @@ export default function SubmissionScreen() {
                   
                   <View style={styles.loanGridRow}>
                     <View style={styles.loanGridItem}>
-                      <Text style={styles.loanLabel}>Scheme</Text>
+                      <Text style={styles.loanLabel}>
+                        {getTranslation('scheme', currentLanguage.code)}
+                      </Text>
                       <Text style={styles.loanValue} numberOfLines={1}>
                         {submissionState.loanDetails.schemeName}
                       </Text>
                     </View>
                     <View style={styles.loanGridItem}>
-                      <Text style={styles.loanLabel}>Sanction Date</Text>
+                      <Text style={styles.loanLabel}>
+                        {getTranslation('sanctionDate', currentLanguage.code)}
+                      </Text>
                       <Text style={styles.loanValue}>
                         {new Date(submissionState.loanDetails.sanctionDate).toLocaleDateString('en-IN')}
                       </Text>
@@ -243,7 +271,6 @@ export default function SubmissionScreen() {
           </View>
         )}
 
-        {/* Compact ScrollView for Sections */}
         <ScrollView 
           style={styles.scrollContent}
           contentContainerStyle={[styles.contentContainer, { paddingBottom: tabBarHeight + 100 }]}
@@ -268,11 +295,15 @@ export default function SubmissionScreen() {
             />
           )}
 
+          {/* Only show MediaSection if photos or videos are required */}
           {rules.media_requirements && (
+            rules.media_requirements.min_photos > 0 || rules.media_requirements.min_video_seconds > 0
+          ) && (
             <MediaSection rules={rules.media_requirements} />
           )}
 
-          {rules.document_rules && (
+          {/* Only show InvoiceSection if invoice is required */}
+          {rules.document_rules && rules.document_rules.require_invoice && (
             <InvoiceSection rules={rules.document_rules} />
           )}
 
@@ -302,12 +333,16 @@ export default function SubmissionScreen() {
               {isSubmitting ? (
                 <>
                   <ActivityIndicator size="small" color={DESIGN_SYSTEM.colors.white} />
-                  <Text style={styles.submitText}>Saving Verification...</Text>
+                  <Text style={styles.submitText}>
+                    {getTranslation('savingVerification', currentLanguage.code)}
+                  </Text>
                 </>
               ) : (
                 <>
                   <CheckCircle size={20} color={DESIGN_SYSTEM.colors.white} strokeWidth={2.5} />
-                  <Text style={styles.submitText}>Submit Verification</Text>
+                  <Text style={styles.submitText}>
+                    {getTranslation('submitVerification', currentLanguage.code)}
+                  </Text>
                 </>
               )}
             </LinearGradient>

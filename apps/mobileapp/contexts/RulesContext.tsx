@@ -7,7 +7,7 @@ interface RulesContextType {
   ruleset: RuleSet | null;
   isLoading: boolean;
   error: string | null;
-  fetchRuleset: (schemeId?: string) => Promise<void>;
+  fetchRuleset: (loanId?: string) => Promise<void>;
   clearRuleset: () => void;
 }
 
@@ -27,33 +27,43 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRuleset = async (schemeId?: string) => {
+  const fetchRuleset = async (loanId?: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // TODO: Replace with actual API endpoint when available
-      // For now, using a default ruleset for PMEGP Tractor Verification
-      // Uncomment when backend endpoint is ready:
-      // if (token) {
-      //   const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/rulesets/active`, {
-      //     method: 'GET',
-      //     headers: {
-      //       'token': token,
-      //       'Content-Type': 'application/json',
-      //     },
-      //   });
-      //   if (response.ok) {
-      //     const data = await response.json();
-      //     setRuleset(data.ruleset || getDefaultRuleset());
-      //     return;
-      //   }
-      // }
+      // If loanId is provided, fetch ruleset from API
+      if (loanId) {
+        const { getLoanWithRuleset } = await import('../api/loansService');
+        const response = await getLoanWithRuleset(loanId);
+        
+        if (response.success && response.data?.ruleset) {
+          const fetchedRuleset = response.data.ruleset;
+          // Map the API response to RuleSet type
+          const mappedRuleset: RuleSet = {
+            _id: fetchedRuleset._id,
+            name: fetchedRuleset.name || 'Verification Rules',
+            description: fetchedRuleset.description || '',
+            tenantId: fetchedRuleset.tenantId || user?.tenantId || '',
+            version: fetchedRuleset.version || 1,
+            rules: fetchedRuleset.rules || {},
+            isActive: fetchedRuleset.isActive,
+            createdAt: fetchedRuleset.createdAt,
+            updatedAt: fetchedRuleset.updatedAt,
+          };
+          setRuleset(mappedRuleset);
+          console.log('[RulesContext] Fetched ruleset from API:', mappedRuleset.name);
+          return;
+        } else {
+          console.warn('[RulesContext] No ruleset found in API response, using default');
+        }
+      }
       
       // Fallback to default ruleset for offline/development
+      console.log('[RulesContext] Using default ruleset');
       setRuleset(getDefaultRuleset());
     } catch (err) {
-      console.error('Error fetching ruleset:', err);
+      console.error('[RulesContext] Error fetching ruleset:', err);
       // Fallback to default ruleset
       setRuleset(getDefaultRuleset());
       setError(null); // Don't show error if we have fallback
@@ -78,15 +88,23 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
         min_photos: 4,
         min_video_seconds: 10,
         allowed_mime_types: ['image/jpeg', 'image/png', 'video/mp4'],
+        label: 'Photos & Video',
+        description: 'Capture clear media using camera only',
+        photo_label: '📸 Photos',
+        video_label: '🎥 Video',
       },
       gps_rules: {
         max_distance_km: 5,
         require_exif_gps: true,
         mock_location_block: true,
+        label: 'Location',
+        description: 'Your location is automatically captured with each photo and video. GPS must remain enabled.',
       },
       time_rules: {
         max_days_after_sanction: 30,
         allow_before_sanction: false,
+        label: 'Time Window',
+        description: 'Verification must be completed within the specified time period.',
       },
       image_quality_rules: {
         max_blur_variance: 120,
@@ -108,11 +126,22 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
         require_invoice: true,
         invoice_ocr_match_amount: true,
         invoice_ocr_match_date: true,
+        label: 'Invoice',
+        description: 'Capture clear photos of the purchase invoice(s). At least one invoice is required. You can add multiple invoices if needed.',
+        document_label: 'Invoice',
       },
       asset_rules: {
         allowed_asset_types: ['TRACTOR'],
         classifier_required: true,
         confidence_threshold: 0.80,
+        label: 'Asset Information',
+        description: 'Verify the asset type and ensure clear documentation.',
+        tips: [
+          'Ensure good lighting conditions',
+          'Capture from multiple angles',
+          'Include identifying features clearly',
+          'Avoid blurry or dark images',
+        ],
       },
       risk_weights: {
         GPS_MISMATCH: 25,
