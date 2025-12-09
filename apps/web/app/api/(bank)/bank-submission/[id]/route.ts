@@ -31,7 +31,10 @@ export const GET = async (
     
     const { id } = await params;
     
+    // Import models
     const Submission = (await import("../../../../../models/Submission")).default;
+    const LoanDetails = (await import("../../../../../models/LoanDetails")).default;
+    
     const submission = await (Submission as any)
       .findById(id)
       .populate("loanId", "loanNumber applicantName sanctionedAmount sanctionDate")

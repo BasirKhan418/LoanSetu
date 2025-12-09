@@ -63,25 +63,44 @@ Return JSON:
       return null;
     }
 
-    // Store result in DB
-    const doc = await ConflictOfInterest.create({
+    // Check if a decision-based conflict already exists
+    const existingConflict = await ConflictOfInterest.findOne({
       submissionId: submission._id,
       officerId,
-      tenantId,
-      aiSummary: submission.aiSummary,
-      officerRemarks,
-      conflictDetected: parsed.conflict,
-      sentimentScore: parsed.sentiment,
-      aiReason: parsed.reason,
+      conflictDetected: true,
+      conflictType: { $ne: "SENTIMENT_BASED" } // Don't overwrite decision-based conflicts
     });
 
-    // If conflict detected → notify tenant admin
+    if (existingConflict) {
+      console.log("Decision-based conflict already exists, skipping sentiment analysis record");
+      return existingConflict;
+    }
+
+    // Store result in DB only if it's a sentiment-based conflict
+    let doc = null;
     if (parsed.conflict) {
+      doc = await ConflictOfInterest.create({
+        submissionId: submission._id,
+        officerId,
+        tenantId,
+        aiSummary: submission.aiSummary,
+        officerRemarks,
+        conflictDetected: true,
+        sentimentScore: parsed.sentiment,
+        aiReason: parsed.reason,
+        conflictType: "SENTIMENT_BASED",
+        aiDecision: submission.aiSummary?.decision || null,
+        officerDecision: submission.review?.reviewDecision || null,
+      });
+
+      // If conflict detected → notify tenant admin
       await sendConflictAlertEmail({
         tenantId,
         submissionId: submission._id.toString(),
         reason: parsed.reason,
       });
+    } else {
+      console.log("No sentiment-based conflict detected");
     }
 
     return doc;

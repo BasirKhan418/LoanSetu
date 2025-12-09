@@ -7,6 +7,7 @@ import Bank from "../../../../models/Bank";
 import StateOfficer from "../../../../models/StateOfficer";
 import Admin from "../../../../models/Admin";
 import Loans from "../../../../models/Loans";
+import ConflictOfInterest from "../../../../models/ConflictOfInterest";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
 import { analyzeConflictOfInterest } from "../../../../lib/conflict-engine";
 import { sendConflictNotificationEmail } from "../../../../lib/email-service";
@@ -102,6 +103,10 @@ export const PUT= async (req: NextRequest) => {
       appeal            // { isAppealed, appealReason, appealStatus }
     } = body;
 
+    console.log("🔔 PUT REQUEST RECEIVED with body:", JSON.stringify(body, null, 2));
+    console.log("🔔 Review Decision:", reviewDecision);
+    console.log("🔔 Review Remarks:", reviewRemarks);
+
     if (!submissionId) {
       return NextResponse.json(
         { message: "submissionId is required", success: false },
@@ -195,9 +200,23 @@ export const PUT= async (req: NextRequest) => {
     .populate('bankid', 'name');
 
     // 🚨 CONFLICT DETECTION: Check if AI and Officer decisions conflict
-    console.log("🔍 Checking for conflicts - reviewDecision:", reviewDecision, "aiDecision:", updatedSubmission.aiSummary?.decision);
+    console.log("═══════════════════════════════════════");
+    console.log("🚨 CONFLICT DETECTION START");
+    console.log("📝 Submission ID:", submissionId);
+    console.log("📝 Updated Submission ID:", updatedSubmission._id);
+    console.log("📝 AI Summary exists:", !!updatedSubmission.aiSummary);
+    console.log("📝 AI Summary full:", JSON.stringify(updatedSubmission.aiSummary));
+    console.log("📝 AI Decision:", updatedSubmission.aiSummary?.decision);
+    console.log("📝 Review Decision from body:", reviewDecision);
+    console.log("📝 Review Remarks from body:", reviewRemarks);
+    console.log("📝 Officer ID from validation:", validation.data?.id);
+    console.log("📝 Officer type:", validation.data?.type);
+    console.log("📝 Tenant ID:", updatedSubmission.tenantId);
+    console.log("📝 Condition check - reviewDecision:", !!reviewDecision, "aiDecision:", !!updatedSubmission.aiSummary?.decision);
+    console.log("═══════════════════════════════════════");
     
     if (reviewDecision && updatedSubmission.aiSummary?.decision) {
+      console.log("✅ BOTH CONDITIONS MET - Proceeding with conflict check");
       const aiDecision = updatedSubmission.aiSummary.decision;
       const officerDecision = reviewDecision;
       
@@ -220,6 +239,18 @@ export const PUT= async (req: NextRequest) => {
       ) {
         isConflict = true;
         conflictType = "AI_NEEDRESUBMIT_OFFICER_APPROVE";
+      } else if (
+        aiDecision === "NEED_RESUBMISSION" && 
+        officerDecision === "REJECTED"
+      ) {
+        // This is actually aligned - both want to reject/resubmit, no conflict
+        isConflict = false;
+      } else if (
+        aiDecision === "HUMAN_REVIEW" && 
+        (officerDecision === "APPROVED" || officerDecision === "REJECTED")
+      ) {
+        // HUMAN_REVIEW is neutral - officer can decide either way without conflict
+        isConflict = false;
       }
 
       console.log("🚨 Conflict detection result:", { isConflict, conflictType, aiDecision, officerDecision });
@@ -227,30 +258,97 @@ export const PUT= async (req: NextRequest) => {
       if (isConflict) {
         console.log("⚠️ CONFLICT DETECTED! Starting conflict recording and notification process...");
         
+        // Check if this is a state officer (has ID) or bank officer (has IFSC)
+        const isStateOfficer = validation.data?.type === "stateofficer" && validation.data?.id;
+        const isBankOfficer = validation.data?.type === "bank" && validation.data?.ifsc;
+        
+        if (!isStateOfficer && !isBankOfficer) {
+          console.warn("⚠️ Cannot record conflict - no valid officer identification");
+          console.log("✅ Skipping conflict recording but continuing with submission update");
+        } else {
+        
         try {
-          // Get officer details
-          const officer = await (StateOfficer as any).findById(validation.data?.id);
-          console.log("👤 Officer found:", officer?.name, officer?.email);
+          // Ensure DB connection
+          await ConnectDb();
+          
+          let officer: any = null;
+          let officerId: any = null;
+          
+          if (isStateOfficer) {
+            // Get state officer details
+            officer = await (StateOfficer as any).findById(validation.data?.id);
+            officerId = validation.data?.id;
+            console.log("👤 State Officer found:", officer?.name, officer?.email);
+          } else if (isBankOfficer) {
+            // Get bank officer details
+            officer = await (Bank as any).findOne({ ifsc: validation.data?.ifsc });
+            officerId = officer?._id;
+            console.log("🏦 Bank Officer found:", officer?.name, officer?.contactEmail);
+          }
           
           // 1. Store conflict in database
-          const ConflictOfInterest = (await import("../../../../models/ConflictOfInterest")).default;
-          const conflictRecord = await (ConflictOfInterest as any).create({
+          console.log("📦 Using ConflictOfInterest model");
+          
+          // Check if conflict already exists to avoid duplicates
+          const existingConflict = await (ConflictOfInterest as any).findOne({
             submissionId: updatedSubmission._id,
-            officerId: validation.data?.id,
-            tenantId: updatedSubmission.tenantId,
-            aiSummary: updatedSubmission.aiSummary,
-            officerRemarks: reviewRemarks || `Officer decision: ${officerDecision}`,
-            conflictDetected: true,
-            sentimentScore: 5, // Neutral score for decision conflicts
-            aiReason: `Decision conflict detected: AI recommended ${aiDecision} but officer decided ${officerDecision}. Conflict type: ${conflictType}`,
+            officerId: officerId,
+            conflictDetected: true
           });
           
-          console.log("✅ Conflict record created:", conflictRecord._id);
+          console.log("🔍 Existing conflict check:", existingConflict ? "Found" : "Not found");
           
-          // 2. Find all admins for the tenant
+          let conflictRecord;
+          if (existingConflict) {
+            console.log("ℹ️ Conflict record already exists, updating...");
+            conflictRecord = await (ConflictOfInterest as any).findByIdAndUpdate(
+              existingConflict._id,
+              {
+                aiSummary: updatedSubmission.aiSummary,
+                officerRemarks: reviewRemarks || `Officer decision: ${officerDecision}`,
+                aiReason: `Decision conflict detected: AI recommended ${aiDecision} but officer decided ${officerDecision}. Conflict type: ${conflictType}`,
+                conflictType: conflictType,
+                aiDecision: aiDecision,
+                officerDecision: officerDecision,
+                updatedAt: new Date()
+              },
+              { new: true }
+            );
+            console.log("✅ Conflict record updated:", conflictRecord?._id);
+          } else {
+            console.log("✅ Creating new conflict record with data:", {
+              submissionId: updatedSubmission._id,
+              officerId: officerId,
+              tenantId: updatedSubmission.tenantId,
+              conflictType: conflictType,
+              aiDecision: aiDecision,
+              officerDecision: officerDecision,
+            });
+            
+            conflictRecord = await (ConflictOfInterest as any).create({
+              submissionId: updatedSubmission._id,
+              officerId: officerId,
+              tenantId: updatedSubmission.tenantId,
+              aiSummary: updatedSubmission.aiSummary,
+              officerRemarks: reviewRemarks || `Officer decision: ${officerDecision}`,
+              conflictDetected: true,
+              sentimentScore: 5, // Neutral score for decision conflicts
+              aiReason: `Decision conflict detected: AI recommended ${aiDecision} but officer decided ${officerDecision}. Conflict type: ${conflictType}`,
+              conflictType: conflictType,
+              aiDecision: aiDecision,
+              officerDecision: officerDecision,
+            });
+            console.log("✅ Conflict record created successfully with ID:", conflictRecord?._id);
+          }
+          
+          console.log("✅ Conflict record saved:", conflictRecord._id, "- Full record:", JSON.stringify(conflictRecord, null, 2));
+          
+          // 2. Find all admins for the tenant (including superadmins)
           const admins = await (Admin as any).find({ 
-            tenantId: updatedSubmission.tenantId,
-            isActive: true 
+            $or: [
+              { tenantId: updatedSubmission.tenantId, isActive: true },
+              { isSuperAdmin: true, isActive: true }
+            ]
           }).select('email name');
 
           console.log(`📧 Found ${admins.length} admin(s) to notify:`, admins.map((a: any) => a.email));
@@ -291,31 +389,46 @@ export const PUT= async (req: NextRequest) => {
               }
             });
           }
-        } catch (emailError) {
-          console.error('❌ Failed to send conflict notification emails:', emailError);
-          // Don't fail the request if email fails
+        } catch (conflictError: any) {
+          console.error('❌ Failed to record and notify conflict:', conflictError);
+          console.error('❌ Error details:', {
+            message: conflictError?.message,
+            stack: conflictError?.stack,
+            name: conflictError?.name
+          });
+          // Don't fail the request if conflict recording fails
+        }
         }
       } else {
-        console.log("✅ No conflict detected - AI and Officer decisions align");
+        console.log("✅ No conflict detected - AI and Officer decisions align or no strong AI opinion");
       }
     } else {
-      console.log("ℹ️ Skipping conflict check - missing reviewDecision or AI decision");
+      console.log("❌ SKIPPING CONFLICT CHECK");
+      console.log("   - reviewDecision present?", !!reviewDecision, "value:", reviewDecision);
+      console.log("   - AI decision present?", !!updatedSubmission.aiSummary?.decision, "value:", updatedSubmission.aiSummary?.decision);
+      if (!reviewDecision) {
+        console.log("   ⚠️ MISSING reviewDecision in request body!");
+      }
+      if (!updatedSubmission.aiSummary?.decision) {
+        console.log("   ⚠️ MISSING aiSummary.decision in submission!");
+      }
     }
     
     // 🔍 CONFLICT ANALYSIS: Additional AI-based sentiment analysis (only if OpenAI key exists and remarks provided)
-    if (reviewDecision && reviewRemarks && validation.data?.id) {
+    // This runs ONLY if there's no decision conflict detected above to avoid duplicates
+    if (reviewDecision && reviewRemarks && validation.data?.id && !updatedSubmission.aiSummary?.decision) {
       try {
-        console.log("🤖 Running AI-based conflict of interest analysis...");
+        console.log("🤖 Running AI-based conflict of interest sentiment analysis...");
         await analyzeConflictOfInterest({
           submission: updatedSubmission,
           officerId: validation.data.id,
           tenantId: updatedSubmission.tenantId,
           officerRemarks: reviewRemarks || "",
         });
-        console.log("✅ AI conflict analysis completed");
-      } catch (conflictError) {
-        console.error('❌ Failed to analyze conflict of interest:', conflictError);
-        // Don't fail the request if conflict analysis fails
+        console.log("✅ AI sentiment analysis completed");
+      } catch (sentimentError) {
+        console.error('❌ Failed to analyze sentiment:', sentimentError);
+        // Don't fail the request if sentiment analysis fails
       }
     }
     
