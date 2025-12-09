@@ -28,6 +28,10 @@ torchvision
 
 # --- Redis for pHash store ---
 redis
+
+# --- HTTP Client for callbacks ---
+httpx
+requests
+
 # --- Utilities ---
 python-dotenv
-requests

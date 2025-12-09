@@ -1,4 +1,5 @@
 from typing import List
+import os
 from PIL import Image, ImageChops
 from models.request_models import MediaItem
 from utils.s3_utils import download_from_s3_to_temp
