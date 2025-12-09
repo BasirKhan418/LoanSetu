@@ -8,7 +8,6 @@ import Loans from "../../../../models/Loans";
 import LoanDetails from "../../../../models/LoanDetails";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
 export const runtime = "nodejs";
-import Rullset from "../../../../models/Rullset";
 export const GET = async (req: NextRequest) => {
     try{
         const headerlist = await headers();
@@ -41,8 +40,6 @@ export const GET = async (req: NextRequest) => {
 export const POST= async (req: NextRequest) => {
     try{
         void LoanDetails;
-        void Rullset;
-        void Loans;
         const headerlist = await headers();
         const token = headerlist.get("token");
        
@@ -55,12 +52,30 @@ export const POST= async (req: NextRequest) => {
         const data = await req.json();
         console.log("Submission data received:", data.loanId);
 const loandata = await (Loans as any).findById(data.loanId as any).populate({ path: "loanDetailsId", model: "LoanDetails" });
-
+console.log("Loan data fetched:", loandata);
 if(!loandata){
     return NextResponse.json({message:"Invalid Loan ID",success:false});
 }
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
+        
+        // 🔗 LEDGER: Record submission creation
+        try {
+          await appendLedgerEntry({
+            loanId: data.loanId,
+            eventType: 'SUBMISSION_CREATED',
+            eventData: {
+              submissionId: newsubmission._id.toString(),
+              beneficiaryId: validation.data?.id,
+              status: newsubmission.status || 'PENDING',
+              createdAt: new Date().toISOString(),
+            },
+            performedBy: validation.data?.email || validation.data?.id || 'user',
+          });
+        } catch (ledgerError) {
+          console.error('Failed to record submission in ledger:', ledgerError);
+        }
+        
         const job = await validationQueue.add(
       "validate user submission", // job name
       { submission: newsubmission }, // job data
@@ -75,7 +90,7 @@ if(!loandata){
       }
     );
         //add details in queue it will take and process later
-        return NextResponse.json({message:"Submission created successfully",data:newsubmission,rullset:rullset,success:true});
+        return NextResponse.json({message:"Submission created successfully",data:newsubmission,success:true});
     }
     catch(err:any){
         return NextResponse.json(
