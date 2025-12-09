@@ -4,6 +4,7 @@ import { verifyAdminToken } from "../../../../utils/verifyToken";
 import ConnectDb from "../../../../middleware/connectDb";
 import LoanDetails from "../../../../models/LoanDetails";
 import Bank from "../../../../models/Bank";
+import { appendLedgerEntry } from "../../../../lib/ledger-service";
 export const GET= async (request: NextRequest) => {
     try{
         await ConnectDb();
@@ -57,6 +58,25 @@ export const POST = async (request: NextRequest) => {
         }
         const newLoanDetails = new LoanDetails({...reqBody,bankid:findbank._id,tenantId:findbank.tenantId});
         await newLoanDetails.save();
+        
+        try {
+            await appendLedgerEntry({
+                loanId: newLoanDetails._id.toString(),
+                eventType: 'LOAN_CREATED',
+                eventData: {
+                    loanName: reqBody.loanname || 'N/A',
+                    bankName: findbank.name || 'N/A',
+                    tenantId: findbank.tenantId,
+                    createdAt: new Date().toISOString(),
+                },
+                amount: reqBody.loanamount ? Number(reqBody.loanamount) : null,
+                performedBy: val?.data?.email || val?.data?.ifsc || 'bank',
+            });
+        } catch (ledgerError) {
+            console.error('Failed to record in ledger:', ledgerError);
+            // Continue even if ledger fails - don't block loan creation
+        }
+        
         return NextResponse.json({message:"Loan Details created successfully",data:newLoanDetails,success:true});
     }
     catch(err){
@@ -75,6 +95,22 @@ export const PUT = async (request: NextRequest) => {
         await ConnectDb();
         const reqBody = await request.json();
         const updatebyid =await (LoanDetails as any).findByIdAndUpdate(reqBody.id,{ $set: reqBody},{new:true} as any);
+        
+        try {
+            await appendLedgerEntry({
+                loanId: reqBody.id,
+                eventType: 'LOAN_UPDATED',
+                eventData: {
+                    updatedFields: Object.keys(reqBody).filter(k => k !== 'id'),
+                    updatedAt: new Date().toISOString(),
+                },
+                amount: reqBody.loanamount ? Number(reqBody.loanamount) : null,
+                performedBy: val?.data?.email || val?.data?.ifsc || 'bank',
+            });
+        } catch (ledgerError) {
+            console.error('Failed to record in ledger:', ledgerError);
+        }
+        
         return NextResponse.json({message:"Loan Details updated successfully",data:updatebyid,success:true});
     }
     catch(err){

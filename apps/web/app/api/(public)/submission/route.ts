@@ -6,6 +6,7 @@ import ConnectDb from "../../../../middleware/connectDb";
 import { headers } from "next/headers";
 import Loans from "../../../../models/Loans";
 import LoanDetails from "../../../../models/LoanDetails";
+import { appendLedgerEntry } from "../../../../lib/ledger-service";
 export const runtime = "nodejs";
 export const GET = async (req: NextRequest) => {
     try{
@@ -57,6 +58,24 @@ if(!loandata){
 }
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
+        
+        // 🔗 LEDGER: Record submission creation
+        try {
+          await appendLedgerEntry({
+            loanId: data.loanId,
+            eventType: 'SUBMISSION_CREATED',
+            eventData: {
+              submissionId: newsubmission._id.toString(),
+              beneficiaryId: validation.data?.id,
+              status: newsubmission.status || 'PENDING',
+              createdAt: new Date().toISOString(),
+            },
+            performedBy: validation.data?.email || validation.data?.id || 'user',
+          });
+        } catch (ledgerError) {
+          console.error('Failed to record submission in ledger:', ledgerError);
+        }
+        
         const job = await validationQueue.add(
       "validate user submission", // job name
       { submission: newsubmission }, // job data

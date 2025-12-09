@@ -6,6 +6,7 @@ import LoanDetails from "../../../../models/LoanDetails";
 import User from "../../../../models/User";
 import { cookies } from "next/headers";
 import Bank from "../../../../models/Bank";
+import { appendLedgerEntry } from "../../../../lib/ledger-service";
 
 export const GET= async (req: NextRequest) => {
     try{
@@ -91,7 +92,6 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    // 2. Parse body ONCE
     const body = await req.json();
     const { users, loans } = body as {
       users: any[];
@@ -224,6 +224,27 @@ export const POST = async (req: NextRequest) => {
 
         await loanDoc.save();
         successCount++;
+        
+        // 🔗 LEDGER: Record loan creation
+        try {
+          await appendLedgerEntry({
+            loanId: loanDoc._id.toString(),
+            eventType: 'LOAN_CREATED',
+            eventData: {
+              loanNumber: loanPayload.loanNumber,
+              beneficiaryName: userDoc.name,
+              beneficiaryPhone: userDoc.phone,
+              sanctionAmount: loanPayload.sanctionAmount,
+              disbursementMode: loanDoc.disbursementMode,
+              bankName: fetchbankDetails.name,
+            },
+            amount: loanPayload.sanctionAmount ? Number(loanPayload.sanctionAmount) : null,
+            performedBy: validation.data?.email || validation.data?.ifsc || 'bank',
+          });
+        } catch (ledgerError) {
+          console.error('Failed to record loan in ledger:', ledgerError);
+          // Continue - don't block loan creation if ledger fails
+        }
       } catch (err: any) {
         failureCount++;
 
@@ -284,6 +305,25 @@ export const PUT = async (req: NextRequest) => {
         await ConnectDb();
         const body = await req.json();
         const updateloan = await Loans.findByIdAndUpdate(body.id, { $set: body }, { new: true } as any);
+        
+        // 🔗 LEDGER: Record loan update
+        try {
+          await appendLedgerEntry({
+            loanId: body.id,
+            eventType: 'LOAN_UPDATED',
+            eventData: {
+              updatedFields: Object.keys(body).filter(k => k !== 'id'),
+              status: body.status || 'N/A',
+              updatedAt: new Date().toISOString(),
+            },
+            amount: body.sanctionAmount ? Number(body.sanctionAmount) : null,
+            performedBy: validation.data?.email || validation.data?.ifsc || 'bank',
+          });
+        } catch (ledgerError) {
+          console.error('Failed to record update in ledger:', ledgerError);
+          // Continue - don't block update if ledger fails
+        }
+        
         return NextResponse.json({message:"Loan updated successfully",success:true,loan:updateloan});
     }
     catch(err){

@@ -97,6 +97,13 @@ export function AdminSidebar({ open, setOpen, adminData }: AdminSidebarProps) {
       ),
     },
     {
+      label: "Ledger Monitor",
+      href: "/admin/ledger-monitor",
+      icon: (
+        <IconShieldCheck className="h-5 w-5 shrink-0 text-neutral-700" />
+      ),
+    },
+    {
       label: "Settings",
       href: "/admin/settings",
       icon: (
