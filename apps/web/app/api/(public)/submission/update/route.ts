@@ -21,7 +21,7 @@ export const PATCH = async (req: NextRequest) => {
         }
 
         // Find submission
-        const submission = await Submission.findById(submissionId);
+        const submission = await (Submission as any).findById(submissionId);
         if (!submission) {
             return NextResponse.json(
                 { message: "Submission not found", success: false },
@@ -47,7 +47,7 @@ export const PATCH = async (req: NextRequest) => {
         await submission.save();
 
         // Update loan with AI decision
-        await Loans.findByIdAndUpdate(submission.loanId, {
+        await (Loans as any).findByIdAndUpdate(submission.loanId, {
             lastAiRiskScore: aiSummary.riskScore,
             lastAiDecision: decision,
         } as any);
