@@ -7,6 +7,9 @@ import Bank from "../../../../models/Bank";
 import StateOfficer from "../../../../models/StateOfficer";
 import Loans from "../../../../models/Loans";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
+import Admin from "../../../../models/Admin";
+import { sendConflictNotificationEmail } from "../../../../email/sendConflictNotificationEmail";
+import User from "../../../../models/User";
 export const GET = async (req: NextRequest) => {
     try{
         await ConnectDb();
@@ -201,11 +204,109 @@ export const PUT= async (req: NextRequest) => {
       submissionId,
       { $set: updates },
       { new: true }
-    );
+    )
+    .populate('loanId', 'loanNumber')
+    .populate('beneficiaryId', 'name');
+    
     const updateloans = await (Loans as any).findByIdAndUpdate(
-      updatedSubmission.loanId,
+      updatedSubmission.loanId._id,
       { $set: { verificationStatus: updatedSubmission.status } }
-    );
+    )
+    .populate('bankid', 'name');
+
+    // 🚨 CONFLICT DETECTION: Check if AI and Officer decisions conflict
+    console.log("🔍 Checking for conflicts - reviewDecision:", reviewDecision, "aiDecision:", updatedSubmission.aiSummary?.decision);
+    
+    if (reviewDecision && updatedSubmission.aiSummary?.decision) {
+      const aiDecision = updatedSubmission.aiSummary.decision;
+      const officerDecision = reviewDecision;
+      
+      let isConflict = false;
+      let conflictType = "";
+
+      // Detect conflict scenarios
+      if (aiDecision === "AUTO_APPROVE" && officerDecision === "REJECTED") {
+        isConflict = true;
+        conflictType = "AI_APPROVE_OFFICER_REJECT";
+      } else if (
+        (aiDecision === "REJECTED" || aiDecision === "AUTO_HIGH_RISK") && 
+        officerDecision === "APPROVED"
+      ) {
+        isConflict = true;
+        conflictType = "AI_REJECT_OFFICER_APPROVE";
+      } else if (
+        aiDecision === "NEED_RESUBMISSION" && 
+        officerDecision === "APPROVED"
+      ) {
+        isConflict = true;
+        conflictType = "AI_NEEDRESUBMIT_OFFICER_APPROVE";
+      }
+
+      console.log("🚨 Conflict detection result:", { isConflict, conflictType, aiDecision, officerDecision });
+
+      // If conflict detected, notify all admins
+      if (isConflict) {
+        console.log("⚠️ CONFLICT DETECTED! Starting email notification process...");
+        
+        try {
+          // Get officer details
+          const officer = await StateOfficer.findById(validation.data?.id);
+          console.log("👤 Officer found:", officer?.name, officer?.email);
+          
+          // Find all admins for the tenant
+          const admins = await Admin.find({ 
+            tenantId: updatedSubmission.tenantId,
+            isActive: true 
+          }).select('email name');
+
+          console.log(`📧 Found ${admins.length} admin(s) to notify:`, admins.map((a: any) => a.email));
+
+          if (admins.length === 0) {
+            console.warn("⚠️ No admins found for tenantId:", updatedSubmission.tenantId);
+          }
+
+          // Send email to all admins
+          const emailPromises = admins.map((admin: any) => 
+            sendConflictNotificationEmail({
+              adminEmail: admin.email,
+              adminName: admin.name,
+              conflictData: {
+                loanNumber: updatedSubmission.loanId?.loanNumber || 'N/A',
+                beneficiaryName: updatedSubmission.beneficiaryId?.name || 'N/A',
+                aiDecision: aiDecision,
+                aiRiskScore: updatedSubmission.aiSummary?.riskScore,
+                officerDecision: officerDecision,
+                officerName: officer?.name || 'Unknown Officer',
+                bankName: updateloans?.bankid?.name || 'N/A',
+                conflictType: conflictType,
+                submissionId: submissionId,
+              }
+            })
+          );
+
+          const results = await Promise.allSettled(emailPromises);
+          const successCount = results.filter(r => r.status === 'fulfilled').length;
+          const failCount = results.filter(r => r.status === 'rejected').length;
+          
+          console.log(`✅ Email notifications complete: ${successCount} sent, ${failCount} failed`);
+          
+          if (failCount > 0) {
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                console.error(`❌ Failed to send email to ${admins[index].email}:`, result.reason);
+              }
+            });
+          }
+        } catch (emailError) {
+          console.error('❌ Failed to send conflict notification emails:', emailError);
+          // Don't fail the request if email fails
+        }
+      } else {
+        console.log("✅ No conflict detected - AI and Officer decisions align");
+      }
+    } else {
+      console.log("ℹ️ Skipping conflict check - missing reviewDecision or AI decision");
+    }
     
     // 🔗 LEDGER: Record submission status changes
     try {
