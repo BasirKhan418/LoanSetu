@@ -58,6 +58,7 @@ if(!loandata){
 }
         const newsubmission = new Submission({...data,beneficiaryId:validation.data?.id,rullsetid:loandata.loanDetailsId.rullsetid,tenantId:loandata.tenantId,loanDetailsId:loandata.loanDetailsId});
         await newsubmission.save();
+        await (Loans as any).findByIdAndUpdate(data.loanId as any,{status:"UNDER_REVIEW"}as any);
         
         // 🔗 LEDGER: Record submission creation
         try {
