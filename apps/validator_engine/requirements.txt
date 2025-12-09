@@ -1,0 +1,33 @@
+# --- Core API ---
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# --- AWS S3 + Rekognition ---
+boto3
+botocore
+
+# --- Image Processing ---
+Pillow
+opencv-python
+
+# --- EXIF Metadata ---
+exifread
+
+# --- Hashing & Duplicate Detection ---
+ImageHash
+
+# --- GPS Distance ---
+haversine
+
+# --- OCR for invoices ---
+easyocr
+torch
+torchvision
+
+# --- Redis for pHash store ---
+redis
+# --- Utilities ---
+python-dotenv
+requests
