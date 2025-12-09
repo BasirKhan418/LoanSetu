@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../api/config';
 import { submissionService } from './submissionService';
@@ -120,22 +119,42 @@ export class SyncService {
       const { data } = await urlResponse.json();
       const { uploadURL, fileURL } = data;
 
-      // Use new File API - File can be used directly as fetch body
-      const file = new FileSystem.File(localPath);
+      console.log(`📤 Reading file: ${localPath}`);
 
-      // Upload to S3
+      // Read file using fetch - this works with file:// URIs in React Native
+      const fileResponse = await fetch(localPath);
+      
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to read file: ${fileResponse.status} ${fileResponse.statusText}`);
+      }
+
+      // Get file as blob
+      const fileBlob = await fileResponse.blob();
+      
+      console.log(`📦 File size: ${fileBlob.size} bytes (${(fileBlob.size / 1024).toFixed(2)} KB)`);
+      console.log(`📦 MIME type: ${mimeType}`);
+
+      if (fileBlob.size === 0) {
+        throw new Error(`File is empty: ${localPath}`);
+      }
+
+      // Upload blob to S3
+      console.log(`☁️ Uploading to S3...`);
       const uploadResponse = await fetch(uploadURL, {
         method: 'PUT',
         headers: {
           'Content-Type': mimeType,
         },
-        body: file,
+        body: fileBlob,
       });
 
       if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`❌ S3 upload failed: ${uploadResponse.status} - ${errorText}`);
         throw new Error(`S3 upload failed: ${uploadResponse.status}`);
       }
 
+      console.log(`✅ Upload successful: ${fileURL}`);
       return fileURL;
     } catch (error) {
       console.error('Error uploading to S3:', error);

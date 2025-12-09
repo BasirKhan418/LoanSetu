@@ -42,13 +42,17 @@ export default function SubmissionScreen() {
   useEffect(() => {
     // Fetch ruleset on mount
     fetchRuleset();
-  }, [fetchRuleset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Initialize submission with loan details from params
-    if (params.loanId && !submissionState.submissionId) {
+    // Only run when loanId changes or when we don't have a submission yet
+    const loanId = params.loanId as string;
+    
+    if (loanId && !submissionState.submissionId) {
       const loanDetails: LoanDetails = {
-        loanId: params.loanId as string,
+        loanId: loanId,
         loanReferenceId: (params.loanReferenceId as string) || '',
         beneficiaryId: (params.beneficiaryId as string) || '',
         beneficiaryName: (params.beneficiaryName as string) || '',
@@ -66,7 +70,8 @@ export default function SubmissionScreen() {
 
       initializeSubmission(loanDetails);
     }
-  }, [params, submissionState.submissionId, initializeSubmission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.loanId, submissionState.submissionId]);
 
   const handleValidateAndSubmit = async () => {
     if (!ruleset || !submissionState.loanDetails) {
