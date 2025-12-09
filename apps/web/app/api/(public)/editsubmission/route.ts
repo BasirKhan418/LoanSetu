@@ -5,9 +5,11 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "../../../../utils/verifyToken";
 import Bank from "../../../../models/Bank";
 import StateOfficer from "../../../../models/StateOfficer";
+import Admin from "../../../../models/Admin";
 import Loans from "../../../../models/Loans";
 import { appendLedgerEntry } from "../../../../lib/ledger-service";
 import { analyzeConflictOfInterest } from "../../../../lib/conflict-engine";
+import { sendConflictNotificationEmail } from "../../../../lib/email-service";
 export const GET = async (req: NextRequest) => {
     try{
         await ConnectDb();
@@ -248,11 +250,11 @@ export const PUT= async (req: NextRequest) => {
         
         try {
           // Get officer details
-          const officer = await StateOfficer.findById(validation.data?.id);
+          const officer = await (StateOfficer as any).findById(validation.data?.id);
           console.log("👤 Officer found:", officer?.name, officer?.email);
           
           // Find all admins for the tenant
-          const admins = await Admin.find({ 
+          const admins = await (Admin as any).find({ 
             tenantId: updatedSubmission.tenantId,
             isActive: true 
           }).select('email name');
@@ -283,13 +285,13 @@ export const PUT= async (req: NextRequest) => {
           );
 
           const results = await Promise.allSettled(emailPromises);
-          const successCount = results.filter(r => r.status === 'fulfilled').length;
-          const failCount = results.filter(r => r.status === 'rejected').length;
+          const successCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'fulfilled').length;
+          const failCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'rejected').length;
           
           console.log(`✅ Email notifications complete: ${successCount} sent, ${failCount} failed`);
           
           if (failCount > 0) {
-            results.forEach((result, index) => {
+            results.forEach((result: PromiseSettledResult<any>, index: number) => {
               if (result.status === 'rejected') {
                 console.error(`❌ Failed to send email to ${admins[index].email}:`, result.reason);
               }
