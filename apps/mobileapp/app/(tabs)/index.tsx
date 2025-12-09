@@ -262,6 +262,59 @@ export default function DashboardScreen() {
     setQuickActionModalVisible(true);
   };
 
+  // Find submission UUID for a loan
+  const findSubmissionForLoan = async (loanId: string): Promise<string | null> => {
+    const db = database.getDatabase();
+    if (!db) return null;
+
+    try {
+      const submission = await db.getFirstAsync<{ localUuid: string }>(
+        'SELECT localUuid FROM submissions WHERE loanId = ? ORDER BY createdAt DESC LIMIT 1',
+        [loanId]
+      );
+      return submission?.localUuid || null;
+    } catch (error) {
+      console.error('[Dashboard] Error finding submission:', error);
+      return null;
+    }
+  };
+
+  // Handle recent submission click
+  const handleRecentSubmissionClick = async (loan: Loan) => {
+    const status = loan.verificationStatus?.toLowerCase();
+    
+    // For pending or need_resubmission, go to submission screen
+    if (status === 'pending' || status === 'need_resubmission') {
+      router.push({
+        pathname: '/submission-screen',
+        params: {
+          loanId: loan._id,
+          loanReferenceId: loan.loanNumber,
+          beneficiaryId: '',
+          beneficiaryName: 'N/A',
+          schemeName: loan.loanDetailsId?.name || loan.loanDetailsId?.schemeName || 'N/A',
+          sanctionAmount: loan.sanctionAmount?.toString() || '0',
+          sanctionDate: loan.sanctionDate || new Date().toISOString(),
+          assetType: 'TRACTOR',
+          tenantId: user?.tenantId || '',
+        }
+      });
+    } else {
+      // For other statuses, find submission and go to tracking page
+      const submissionId = await findSubmissionForLoan(loan._id);
+      if (submissionId) {
+        router.push({
+          pathname: '/submission-tracking',
+          params: {
+            submissionId: submissionId,
+          }
+        });
+      } else {
+        console.log('[Dashboard] No submission found for loan:', loan._id);
+      }
+    }
+  };
+
   const quickActions = [
     { 
       id: 1, 
@@ -504,15 +557,7 @@ export default function DashboardScreen() {
                     key={loan._id}
                     style={styles.loanCard}
                     activeOpacity={0.7}
-                    onPress={() => router.push({
-                      pathname: '/submission-tracking',
-                      params: {
-                        loanId: loan._id.toString(),
-                        schemeName: loan.loanDetailsId.schemeName,
-                        amount: loan.sanctionAmount.toString(),
-                        referenceId: loan.loanNumber,
-                      }
-                    })}
+                    onPress={() => handleRecentSubmissionClick(loan)}
                   >
                     <View style={styles.loanCardHeader}>
                       <View style={styles.loanIconContainer}>

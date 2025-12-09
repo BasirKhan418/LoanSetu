@@ -1,7 +1,7 @@
 // apps/mobileapp/app/submission-tracking.tsx
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, CheckCircle, Clock, AlertCircle, XCircle, FileText, Upload } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/contexts/DatabaseContext';
-import { Submission, MediaFile } from '@/database/schema';
+import { useAuth } from '@/contexts/AuthContext';
+import { Submission, MediaFile, database } from '@/database/schema';
 import { submissionService } from '@/services/submissionService';
+import * as loansService from '@/api/loansService';
 
 const { width } = Dimensions.get('window');
 const scale = width / 375;
@@ -35,22 +37,92 @@ export default function SubmissionTrackingScreen() {
   const insets = useSafeAreaInsets();
   const { submissionId } = useLocalSearchParams<{ submissionId: string }>();
   const { isInitialized } = useDatabase();
+  const { token } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const timelineRef = useRef<View>(null);
   
   const [submission, setSubmission] = useState<SubmissionWithMedia | null>(null);
+  const [loanStatus, setLoanStatus] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load cached loan status from SQLite immediately
+  const loadCachedLoanStatus = React.useCallback(async (loanId: string) => {
+    const db = database.getDatabase();
+    if (!db) return;
+
+    try {
+      const cachedLoan = await db.getFirstAsync<{ verificationStatus: string }>(
+        'SELECT verificationStatus FROM loans WHERE loanId = ?',
+        [loanId]
+      );
+      if (cachedLoan) {
+        setLoanStatus(cachedLoan.verificationStatus || '');
+      }
+    } catch (error) {
+      console.error('[Tracking] Error loading cached loan status:', error);
+    }
+  }, []);
+
+  // Fetch fresh loan status from API in background
+  const fetchFreshLoanStatus = React.useCallback(async (loanId: string) => {
+    if (!token) return;
+
+    try {
+      const loanResponse = await loansService.getLoanById(loanId, token);
+      if (loanResponse.success && loanResponse.data) {
+        const status = loanResponse.data.verificationStatus || '';
+        setLoanStatus(status);
+        
+        // Update SQLite cache
+        const db = database.getDatabase();
+        if (db) {
+          await db.runAsync(
+            'UPDATE loans SET verificationStatus = ?, updatedAt = ? WHERE loanId = ?',
+            [status, new Date().toISOString(), loanId]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[Tracking] Error fetching fresh loan status:', error);
+    }
+  }, [token]);
 
   const loadSubmission = React.useCallback(async () => {
     if (!submissionId || !isInitialized) return;
 
     try {
+      // Load submission from SQLite immediately
       const data = await submissionService.getSubmissionByUuid(submissionId);
       setSubmission(data);
+      setIsLoading(false);
+      
+      // Load cached loan status immediately for instant display
+      if (data && data.loanId) {
+        await loadCachedLoanStatus(data.loanId);
+        
+        // Fetch fresh status from API in background
+        setIsRefreshing(true);
+        fetchFreshLoanStatus(data.loanId).finally(() => setIsRefreshing(false));
+      }
+      
+      // Auto-scroll to current status after a short delay
+      setTimeout(() => {
+        if (timelineRef.current) {
+          timelineRef.current.measureLayout(
+            scrollViewRef.current as any,
+            (x, y) => {
+              scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+            },
+            () => {}
+          );
+        }
+      }, 300);
     } catch (error) {
-      console.error('Error loading submission:', error);
-    } finally {
+      console.error('[Tracking] Error loading submission:', error);
       setIsLoading(false);
     }
-  }, [submissionId, isInitialized]);
+  }, [submissionId, isInitialized, loadCachedLoanStatus, fetchFreshLoanStatus]);
 
   useEffect(() => {
     loadSubmission();
@@ -58,12 +130,21 @@ export default function SubmissionTrackingScreen() {
 
   const getStatusSteps = (): StatusStep[] => {
     const syncStatus = submission?.syncStatus || 'PENDING';
+    const currentLoanStatus = loanStatus.toLowerCase();
     const createdAt = submission?.createdAt 
       ? new Date(submission.createdAt).toLocaleString()
       : undefined;
     const syncedAt = submission?.syncedAt
       ? new Date(submission.syncedAt).toLocaleString()
       : undefined;
+
+    // Determine current step based on loan verification status
+    const isInReview = syncStatus === 'SYNCED' && 
+                       (currentLoanStatus === 'pending' || 
+                        currentLoanStatus === 'in_review' || 
+                        currentLoanStatus === 'need_resubmission');
+    const isApproved = currentLoanStatus === 'approved';
+    const isRejected = currentLoanStatus === 'rejected';
 
     const steps: StatusStep[] = [
       {
@@ -73,45 +154,50 @@ export default function SubmissionTrackingScreen() {
         timestamp: createdAt,
         notes: 'Application submitted successfully',
         completed: true,
-        active: syncStatus === 'PENDING',
+        active: syncStatus === 'PENDING' && !loanStatus,
       },
       {
         status: 'in-review',
         label: 'In Review',
         icon: <Clock size={24} color="#fff" />,
         timestamp: syncedAt,
-        notes: syncStatus === 'SYNCED' ? 'Under verification by authorities' : undefined,
-        completed: syncStatus === 'SYNCED',
-        active: syncStatus === 'SYNCED',
+        notes: isInReview ? 'Under verification by authorities' : undefined,
+        completed: isInReview || isApproved || isRejected,
+        active: isInReview,
       },
       {
         status: 'approved',
-        label: syncStatus === 'FAILED' ? 'Failed' : 'Approved',
-        icon: syncStatus === 'FAILED' 
+        label: isApproved ? 'Approved' : isRejected ? 'Rejected' : syncStatus === 'FAILED' ? 'Failed' : 'Approved',
+        icon: isRejected || syncStatus === 'FAILED'
           ? <XCircle size={24} color="#fff" />
           : <CheckCircle size={24} color="#fff" />,
-        timestamp: syncStatus === 'FAILED' ? syncedAt : undefined,
-        notes: syncStatus === 'FAILED' 
+        timestamp: isApproved || isRejected ? syncedAt : syncStatus === 'FAILED' ? syncedAt : undefined,
+        notes: isApproved 
+          ? 'Verification approved successfully'
+          : isRejected
+          ? 'Verification rejected'
+          : syncStatus === 'FAILED'
           ? `Error: ${submission?.errorMessage || 'Sync failed'}`
-          : syncStatus === 'SYNCED' ? 'Verification complete' : undefined,
-        completed: syncStatus === 'SYNCED',
-        active: false,
-      },
-      {
-        status: 'rejected',
-        label: 'Rejected',
-        icon: <AlertCircle size={24} color="#fff" />,
-        completed: false,
-        active: false,
+          : undefined,
+        completed: isApproved,
+        active: isApproved,
       },
     ];
 
-    // Filter out rejected step if not applicable
-    if (syncStatus !== 'FAILED') {
-      return steps.filter(s => s.status !== 'rejected');
+    // Add rejected step if loan is rejected
+    if (isRejected) {
+      steps[2] = {
+        status: 'rejected',
+        label: 'Rejected',
+        icon: <XCircle size={24} color="#fff" />,
+        timestamp: syncedAt,
+        notes: 'Verification was rejected',
+        completed: true,
+        active: true,
+      };
     }
 
-    return steps.slice(0, 3); // Show first 3 steps if failed
+    return steps;
   };
 
   const getSyncStatusColor = (status: string) => {
@@ -173,14 +259,34 @@ export default function SubmissionTrackingScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Submission Info Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Loan Details</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-              {getSyncStatusIcon(submission.syncStatus)}
-              <Text style={styles.statusBadgeText}>{submission.syncStatus}</Text>
+            <View>
+              <Text style={styles.cardTitle}>Loan Details</Text>
+              {isRefreshing && (
+                <Text style={styles.refreshingText}>Updating status...</Text>
+              )}
+            </View>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                {getSyncStatusIcon(submission.syncStatus)}
+                <Text style={styles.statusBadgeText}>{submission.syncStatus}</Text>
+              </View>
+              {loanStatus && (
+                <View style={[styles.verificationBadge, { 
+                  backgroundColor: loanStatus.toLowerCase() === 'approved' ? '#D1FAE5' : 
+                                   loanStatus.toLowerCase() === 'rejected' ? '#FEE2E2' :
+                                   loanStatus.toLowerCase() === 'need_resubmission' ? '#FEF3C7' : '#E0E7FF'
+                }]}>
+                  <Text style={[styles.verificationBadgeText, {
+                    color: loanStatus.toLowerCase() === 'approved' ? '#065f46' : 
+                           loanStatus.toLowerCase() === 'rejected' ? '#991b1b' :
+                           loanStatus.toLowerCase() === 'need_resubmission' ? '#92400e' : '#3730a3'
+                  }]}>{loanStatus.toUpperCase()}</Text>
+                </View>
+              )}
             </View>
           </View>
           
@@ -212,7 +318,7 @@ export default function SubmissionTrackingScreen() {
         </View>
 
         {/* Status Timeline */}
-        <View style={styles.card}>
+        <View style={styles.card} ref={timelineRef}>
           <Text style={styles.cardTitle}>Status Timeline</Text>
           
           <View style={styles.timeline}>
@@ -361,14 +467,24 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
   cardTitle: {
     fontSize: 16 * scale,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  refreshingText: {
+    fontSize: 11 * scale,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -381,6 +497,15 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     color: '#fff',
     fontSize: 12 * scale,
+    fontWeight: '600',
+  },
+  verificationBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  verificationBadgeText: {
+    fontSize: 11 * scale,
     fontWeight: '600',
   },
   infoRow: {

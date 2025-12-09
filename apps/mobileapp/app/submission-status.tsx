@@ -198,14 +198,6 @@ export default function SubmissionStatusScreen() {
       {/* Statistics Cards */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
-            <Clock size={20} color="#f59e0b" strokeWidth={2} />
-          </View>
-          <Text style={styles.statValue}>{stats.pending}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-        
-        <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#D1FAE5' }]}>
             <CheckCircle size={20} color="#10b981" strokeWidth={2} />
           </View>
