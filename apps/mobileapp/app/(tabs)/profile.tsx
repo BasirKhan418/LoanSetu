@@ -49,7 +49,7 @@ export default function ProfileScreen() {
     ? Math.max(80, 50 + insets.bottom) 
     : Math.max(70, 60 + insets.bottom);
   
-  // Fetch loans from API
+  // Offline-first: Load from SQLite first, then sync with API
   const fetchLoans = async () => {
     if (!user?.phone) {
       setIsLoadingLoans(false);
@@ -57,14 +57,47 @@ export default function ProfileScreen() {
     }
 
     try {
-      console.log('[Profile] Fetching loans for:', user.phone);
-      const response = await loansService.getUserLoans(user.phone);
+      // 1. Load from cache immediately
+      const { database } = await import('@/database/schema');
+      const db = database.getDatabase();
+      if (db) {
+        const cached = await db.getAllAsync<any>(
+          'SELECT * FROM loans ORDER BY sanctionDate DESC LIMIT 3'
+        );
+        if (cached.length > 0) {
+          const cachedLoans = cached.map(loan => ({
+            _id: loan.loanId,
+            loanNumber: loan.loanReferenceId,
+            loanDetailsId: {
+              _id: '',
+              name: loan.schemeName,
+              schemeName: loan.schemeName,
+              schemeCode: '',
+            },
+            sanctionAmount: loan.sanctionAmount,
+            sanctionDate: loan.sanctionDate,
+            verificationStatus: loan.verificationStatus || 'pending',
+            createdAt: loan.createdAt,
+            beneficiaryId: { _id: '', name: '', phone: '' },
+            bankid: { _id: '', name: '', ifsc: '' },
+            updatedAt: loan.updatedAt,
+          }));
+          setLoans(cachedLoans);
+          console.log('[Profile] Loaded', cachedLoans.length, 'loans from cache');
+        }
+      }
       
-      if (response.success && response.data) {
-        console.log('[Profile] Loans fetched:', response.data.length);
-        setLoans(response.data.slice(0, 3)); // Show top 3 loans
+      // 2. Sync with API if online
+      if (isOnline) {
+        console.log('[Profile] Syncing with API...');
+        const response = await loansService.getUserLoans(user.phone);
+        
+        if (response.success && response.data) {
+          console.log('[Profile] API sync successful');
+          setLoans(response.data.slice(0, 3)); // Show top 3 loans
+        }
       } else {
-        console.error('[Profile] Failed to fetch loans:', response.message);
+        console.log('[Profile] Offline - using cached data');
       }
     } catch (error) {
       console.error('[Profile] Error fetching loans:', error);
@@ -589,8 +622,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   creativeHeader: {
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 50,
-    paddingBottom: Math.max(30, height * 0.04),
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 50,
+    paddingBottom: Math.max(15, height * 0.02),
     paddingHorizontal: Math.max(20, width * 0.06),
   },
   connectionStatus: {
@@ -649,19 +682,6 @@ const styles = StyleSheet.create({
     height: Math.max(80, scale * 90),
     borderRadius: Math.max(40, scale * 45),
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  editIconButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#FC8019',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   userDetailsContainer: {

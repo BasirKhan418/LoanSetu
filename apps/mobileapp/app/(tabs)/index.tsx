@@ -5,7 +5,9 @@ import { QuickActionModal } from '@/components/QuickActionModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLocation } from '@/contexts/LocationContext';
+import { database } from '@/database/schema';
 import { getTranslation } from '@/utils/translations';
+import NetInfo from '@react-native-community/netinfo';
 import { router } from 'expo-router';
 import {
   AlertCircle,
@@ -16,6 +18,8 @@ import {
   Plus,
   Search,
   TrendingUp,
+  Wifi,
+  WifiOff,
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -59,6 +63,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   // Modal states
   const [loansModalVisible, setLoansModalVisible] = useState(false);
@@ -85,24 +90,109 @@ export default function DashboardScreen() {
     }
   }, [hasSetLocation, showLocationPopup]);
 
-  // Fetch loans from API
+  // Offline-first: Load from SQLite first, then sync with API
   const fetchLoans = async () => {
     if (!user?.phone) {
       return;
     }
 
     try {
-      console.log('[Dashboard] Fetching loans for:', user.phone);
-      const response = await loansService.getUserLoans(user.phone);
+      // 1. Load from SQLite immediately
+      const cachedLoans = await loadCachedLoans();
+      if (cachedLoans.length > 0) {
+        setLoans(cachedLoans);
+        console.log('[Dashboard] Loaded', cachedLoans.length, 'loans from cache');
+      }
       
-      if (response.success && response.data) {
-        console.log('[Dashboard] Loans fetched:', response.data.length);
-        setLoans(response.data);
+      // 2. Check network and sync
+      const networkState = await NetInfo.fetch();
+      const online = networkState.isConnected && networkState.isInternetReachable;
+      setIsOnline(online || false);
+
+      if (online) {
+        // 3. Fetch from API to update cache
+        console.log('[Dashboard] Syncing with API...');
+        const response = await loansService.getUserLoans(user.phone);
+        
+        if (response.success && response.data) {
+          console.log('[Dashboard] API sync successful:', response.data.length);
+          setLoans(response.data);
+          await cacheLoansInSQLite(response.data);
+        }
       } else {
-        console.error('[Dashboard] Failed to fetch loans:', response.message);
+        console.log('[Dashboard] Offline - using cached data');
       }
     } catch (error) {
       console.error('[Dashboard] Error fetching loans:', error);
+    }
+  };
+
+  // Cache loans in SQLite
+  const cacheLoansInSQLite = async (loansData: Loan[]) => {
+    const db = database.getDatabase();
+    if (!db || !user) return;
+
+    try {
+      for (const loan of loansData) {
+        const now = new Date().toISOString();
+        const existing = await db.getFirstAsync<{ id: number }>(
+          'SELECT id FROM loans WHERE loanId = ?',
+          [loan._id]
+        );
+
+        if (existing) {
+          await db.runAsync(
+            `UPDATE loans SET beneficiaryName = ?, loanReferenceId = ?,
+             schemeName = ?, sanctionAmount = ?, sanctionDate = ?,
+             verificationStatus = ?, updatedAt = ? WHERE loanId = ?`,
+            ['N/A', loan.loanNumber, loan.loanDetailsId?.name || 'N/A',
+             loan.sanctionAmount, loan.sanctionDate, loan.verificationStatus || 'pending',
+             now, loan._id]
+          );
+        } else {
+          await db.runAsync(
+            `INSERT INTO loans (loanId, beneficiaryId, beneficiaryName, loanReferenceId,
+             schemeName, sanctionAmount, sanctionDate, assetType, tenantId,
+             verificationStatus, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [loan._id, 'N/A', 'N/A', loan.loanNumber, loan.loanDetailsId?.name || 'N/A',
+             loan.sanctionAmount, loan.sanctionDate, 'TRACTOR', user.tenantId || '',
+             loan.verificationStatus || 'pending', now, now]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('[Dashboard] Error caching loans:', error);
+    }
+  };
+
+  // Load loans from SQLite cache
+  const loadCachedLoans = async (): Promise<Loan[]> => {
+    const db = database.getDatabase();
+    if (!db) return [];
+
+    try {
+      const cached = await db.getAllAsync<any>(
+        'SELECT * FROM loans ORDER BY sanctionDate DESC'
+      );
+
+      return cached.map(loan => ({
+        _id: loan.loanId,
+        loanNumber: loan.loanReferenceId,
+        loanDetailsId: {
+          _id: '',
+          name: loan.schemeName,
+          schemeName: loan.schemeName,
+          schemeCode: '',
+        },
+        sanctionAmount: loan.sanctionAmount,
+        sanctionDate: loan.sanctionDate,
+        verificationStatus: loan.verificationStatus || 'pending',
+        createdAt: loan.createdAt,
+      }));
+    } catch (error) {
+      console.error('[Dashboard] Error loading cached loans:', error);
+      return [];
     }
   };
 
@@ -114,6 +204,15 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     fetchLoans();
+    
+    // Listen for network changes
+    const unsubscribe = NetInfo.addEventListener(state => {
+      const online = state.isConnected && state.isInternetReachable;
+      setIsOnline(online || false);
+      console.log('[Dashboard] Network status:', online ? 'Online' : 'Offline');
+    });
+    
+    return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
@@ -270,8 +369,23 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.welcomeSection}>
-            <Text style={styles.greeting}>{getGreeting()}, {user?.name || 'User'}</Text>
-            <Text style={styles.welcomeSubtitle}>{getTranslation('trackManageLoans', currentLanguage.code)}</Text>
+            <View style={styles.greetingRow}>
+              <View style={styles.greetingContent}>
+                <Text style={styles.greeting}>{getGreeting()}, {user?.name || 'User'}</Text>
+                <Text style={styles.welcomeSubtitle}>{getTranslation('trackManageLoans', currentLanguage.code)}</Text>
+              </View>
+              {/* Online/Offline Indicator */}
+              <View style={[styles.onlineIndicator, !isOnline && styles.offlineIndicator]}>
+                {isOnline ? (
+                  <Wifi size={14} color="#10b981" strokeWidth={2.5} />
+                ) : (
+                  <WifiOff size={14} color="#ef4444" strokeWidth={2.5} />
+                )}
+                <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -344,6 +458,29 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{getTranslation('quickActions', currentLanguage.code)}</Text>
+            <View style={styles.actionsGrid}>
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <TouchableOpacity
+                    key={action.id}
+                    style={styles.actionCard}
+                    activeOpacity={0.7}
+                    onPress={action.onPress}
+                  >
+                    <View style={[styles.actionIconContainer]}>
+                      <Icon size={24} color={action.color} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.actionTitle}>{action.title}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
           {/* Recent Submissions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -368,7 +505,7 @@ export default function DashboardScreen() {
                     style={styles.loanCard}
                     activeOpacity={0.7}
                     onPress={() => router.push({
-                      pathname: '/submission-status',
+                      pathname: '/submission-tracking',
                       params: {
                         loanId: loan._id.toString(),
                         schemeName: loan.loanDetailsId.schemeName,
@@ -400,29 +537,6 @@ export default function DashboardScreen() {
                 );
               })
             )}
-          </View>
-
-          {/* Quick Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{getTranslation('quickActions', currentLanguage.code)}</Text>
-            <View style={styles.actionsGrid}>
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <TouchableOpacity
-                    key={action.id}
-                    style={styles.actionCard}
-                    activeOpacity={0.7}
-                    onPress={action.onPress}
-                  >
-                    <View style={[styles.actionIconContainer]}>
-                      <Icon size={24} color={action.color} strokeWidth={2} />
-                    </View>
-                    <Text style={styles.actionTitle}>{action.title}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           </View>
         </ScrollView>
       </View>
@@ -493,6 +607,15 @@ const styles = StyleSheet.create({
   welcomeSection: {
     marginBottom: 4,
   },
+  greetingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  greetingContent: {
+    flex: 1,
+  },
   greeting: {
     fontSize: Math.max(18, scale * 20),
     color: '#1F2937',
@@ -502,6 +625,29 @@ const styles = StyleSheet.create({
   welcomeSubtitle: {
     fontSize: Math.max(13, scale * 14),
     color: '#6B7280',
+  },
+  onlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  offlineIndicator: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#ef4444',
+  },
+  onlineText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  offlineText: {
+    color: '#ef4444',
   },
   scrollContent: {
     flex: 1,
