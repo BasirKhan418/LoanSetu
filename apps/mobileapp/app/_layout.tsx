@@ -9,6 +9,8 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LocationProvider } from '@/contexts/LocationContext';
+import { RulesProvider } from '@/contexts/RulesContext';
+import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import '../global.css';
 
@@ -25,18 +27,23 @@ export default function RootLayout() {
         <AuthProvider>
           <LanguageProvider>
             <LocationProvider>
-              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="splash" />
-                  <Stack.Screen name="login" />
-                  <Stack.Screen name="language-selection" />
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="loan-verification" />
-                  <Stack.Screen name="submission-status" />
-                  <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-                </Stack>
-                <StatusBar style="auto" />
-              </ThemeProvider>
+              <RulesProvider>
+                <SubmissionProvider>
+                  <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="splash" />
+                      <Stack.Screen name="login" />
+                      <Stack.Screen name="language-selection" />
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="submission-screen" />
+                      <Stack.Screen name="camera-screen" options={{ headerShown: false, animation: 'none' }} />
+                      <Stack.Screen name="submission-status" />
+                      <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                    </Stack>
+                    <StatusBar style="auto" />
+                  </ThemeProvider>
+                </SubmissionProvider>
+              </RulesProvider>
             </LocationProvider>
           </LanguageProvider>
         </AuthProvider>

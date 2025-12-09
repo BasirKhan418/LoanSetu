@@ -1,6 +1,10 @@
-// apps/mobileapp/services/syncService.ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
+import { API_BASE_URL } from '../api/config';
 import { submissionService } from './submissionService';
 
 export type NetworkQuality = 'excellent' | 'good' | 'poor' | 'offline';
@@ -12,10 +16,9 @@ export interface SyncResult {
   errors: string[];
 }
 
-const API_BASE_URL = 'https://your-api.com/api'; 
-const API_HEALTH_ENDPOINT = `${API_BASE_URL}/health`;
-const API_UPLOAD_ENDPOINT = `${API_BASE_URL}/upload`;
-const API_SYNC_ENDPOINT = `${API_BASE_URL}/submissions/sync`;
+const API_HEALTH_ENDPOINT = `${API_BASE_URL}/api/health`;
+const API_SYNC_ENDPOINT = `${API_BASE_URL}/api/submission`;
+const API_S3_UPLOAD_ENDPOINT = `${API_BASE_URL}/api/upload`;
 
 export class SyncService {
   private isSyncing = false;
@@ -68,61 +71,74 @@ export class SyncService {
       });
 
       clearTimeout(timeoutId);
-      return response.ok;
+      // Accept 404 as reachable - health endpoint might not exist
+      return response.ok || response.status === 404;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      // Network error - backend truly unreachable
       return false;
     }
   }
 
   /**
-   * Upload a single file to storage and return URL
+   * Get auth token from AsyncStorage
    */
-  private async uploadFile(filePath: string): Promise<string> {
+  private async getAuthToken(): Promise<string | null> {
     try {
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(filePath, {
-        encoding: 'base64',
-      });
+      return await AsyncStorage.getItem('authToken');
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
+  }
 
-      // Get file info
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      const fileName = filePath.split('/').pop() || 'file';
-      const mimeType = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') 
-        ? 'image/jpeg' 
-        : 'image/png';
+  /**
+   * Upload file to S3 and return the file URL
+   */
+  private async uploadToS3(localPath: string, mimeType: string, token: string): Promise<string> {
+    try {
+      // Extract filename from path
+      const filename = localPath.split('/').pop() || 'file';
 
-      // Upload to backend
-      // TODO: Add your auth token here
-      const response = await fetch(API_UPLOAD_ENDPOINT, {
+      // Get signed upload URL from backend
+      const urlResponse = await fetch(API_S3_UPLOAD_ENDPOINT, {
         method: 'POST',
         headers: {
+          'token': token,
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${yourAuthToken}`, // ADD AUTH TOKEN
         },
         body: JSON.stringify({
-          fileName,
-          mimeType,
-          data: base64,
-          size: fileInfo.exists && 'size' in fileInfo ? fileInfo.size : 0,
+          filename,
+          contentType: mimeType,
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      if (!urlResponse.ok) {
+        throw new Error(`Failed to get upload URL: ${urlResponse.status}`);
       }
 
-      const result = await response.json();
-      
-      if (!result.url) {
-        throw new Error('Upload response missing URL');
+      const { data } = await urlResponse.json();
+      const { uploadURL, fileURL } = data;
+
+      // Use new File API - File can be used directly as fetch body
+      const file = new FileSystem.File(localPath);
+
+      // Upload to S3
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mimeType,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`S3 upload failed: ${uploadResponse.status}`);
       }
 
-      console.log(`File uploaded successfully: ${fileName}`);
-      return result.url;
+      return fileURL;
     } catch (error) {
-      console.error('File upload error:', error);
+      console.error('Error uploading to S3:', error);
       throw error;
     }
   }
@@ -134,53 +150,113 @@ export class SyncService {
     console.log(`Starting sync for submission: ${submission.localUuid}`);
 
     try {
-      // Upload all media files first
-      const uploadedFiles = [];
-      
-      for (const mediaFile of submission.mediaFiles) {
-        try {
-          const url = await this.uploadFile(mediaFile.localPath);
-          uploadedFiles.push({
-            type: mediaFile.type,
-            photoType: mediaFile.photoType,
-            url,
-            mimeType: mediaFile.mimeType,
-            fileSize: mediaFile.fileSize,
-            geoLat: mediaFile.geoLat,
-            geoLng: mediaFile.geoLng,
-            timestamp: mediaFile.timestamp,
-          });
-        } catch (uploadError) {
-          console.error(`Failed to upload file: ${mediaFile.localPath}`, uploadError);
-          throw new Error(`File upload failed: ${uploadError}`);
-        }
+      // Get auth token
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
       }
 
-      console.log(`All files uploaded for ${submission.localUuid}, sending to server...`);
+      // Get device info
+      const deviceModel = Device.modelName || Device.deviceName || 'Unknown Device';
+      const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+      const osVersion = Device.osVersion || 'Unknown';
+      const appVersion = Constants.expoConfig?.version || '1.0.0';
 
-      // Send submission data to backend
-      // TODO: Add your auth token here
+      // Get network info
+      const networkState = await NetInfo.fetch();
+      const networkType = networkState.type === 'wifi' ? 'WiFi' : 
+                         networkState.type === 'cellular' ? '4G' : 
+                         networkState.type || 'Unknown';
+      const isOffline = !networkState.isConnected;
+
+      // Upload files to S3 and prepare media array
+      console.log(`Uploading ${submission.mediaFiles.length} files to S3...`);
+      const mediaArray = [];
+      
+      for (const mediaFile of submission.mediaFiles) {
+        // Parse metadata if it exists (EXIF data)
+        let parsedMetadata = null;
+        try {
+          parsedMetadata = mediaFile.metadata ? JSON.parse(mediaFile.metadata) : null;
+        } catch (e) {
+          console.warn('Failed to parse metadata:', e);
+        }
+
+        // Upload file to S3
+        const fileKey = await this.uploadToS3(
+          mediaFile.localPath,
+          mediaFile.mimeType || 'image/jpeg',
+          token
+        );
+        console.log(`✅ Uploaded ${mediaFile.type}: ${fileKey}`);
+
+        // Map type to API format
+        let apiType = 'IMAGE';
+        if (mediaFile.type === 'VIDEO') {
+          apiType = 'VIDEO';
+        } else if (mediaFile.type === 'INVOICE') {
+          apiType = 'DOCUMENT';
+        }
+
+        // Ensure timestamp is in ISO format
+        let capturedAt = mediaFile.timestamp;
+        if (capturedAt && !capturedAt.endsWith('Z') && !capturedAt.includes('+')) {
+          // If timestamp doesn't have timezone info, assume UTC
+          capturedAt = new Date(capturedAt).toISOString();
+        }
+
+        mediaArray.push({
+          type: apiType,
+          fileKey: fileKey,
+          mimeType: mediaFile.mimeType || 'image/jpeg',
+          sizeInBytes: mediaFile.fileSize || 0,
+          capturedAt: capturedAt,
+          gpsLat: Number(mediaFile.geoLat) || 0,
+          gpsLng: Number(mediaFile.geoLng) || 0,
+          hasExif: !!parsedMetadata,
+          hasGpsExif: !!(mediaFile.geoLat && mediaFile.geoLng),
+          isScreenshot: false,
+          isPrintedPhotoSuspect: false,
+        });
+      }
+
+      // Ensure submission timestamps are in ISO format
+      let submittedAt = submission.createdAt;
+      if (submittedAt && !submittedAt.endsWith('Z') && !submittedAt.includes('+')) {
+        submittedAt = new Date(submittedAt).toISOString();
+      }
+
+      // Prepare submission data matching API expectations
+      const submissionData: any = {
+        loanId: submission.loanId,
+        submissionType: 'INITIAL',
+        status: 'PENDING_AI',
+        media: mediaArray,
+        deviceInfo: {
+          platform: platform,
+          osVersion: osVersion,
+          appVersion: appVersion,
+          deviceModel: deviceModel,
+        },
+        captureContext: {
+          isOffline: isOffline,
+          networkType: networkType,
+          submittedAt: submittedAt,
+          syncedAt: new Date().toISOString(),
+        },
+      };
+
+      console.log(`Sending data for ${submission.localUuid} with ${submission.mediaFiles.length} files...`);
+      console.log('Submission data:', JSON.stringify(submissionData, null, 2));
+
+      // Send submission as JSON (API expects JSON body)
       const response = await fetch(API_SYNC_ENDPOINT, {
         method: 'POST',
         headers: {
+          'token': token,
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${yourAuthToken}`, // ADD AUTH TOKEN
         },
-        body: JSON.stringify({
-          localUuid: submission.localUuid,
-          beneficiaryId: submission.beneficiaryId,
-          loanId: submission.loanId,
-          loanReferenceId: submission.loanReferenceId,
-          loanSchemeName: submission.loanSchemeName,
-          loanAmount: submission.loanAmount,
-          productName: submission.productName,
-          productDetails: submission.productDetails,
-          geoLat: submission.geoLat,
-          geoLng: submission.geoLng,
-          submittedBy: submission.submittedBy,
-          files: uploadedFiles,
-          createdAt: submission.createdAt,
-        }),
+        body: JSON.stringify(submissionData),
       });
 
       if (!response.ok) {
@@ -290,14 +366,40 @@ export class SyncService {
       // Get pending submissions
       const pendingSubmissions = await submissionService.getPendingSubmissions();
       console.log(`📋 Found ${pendingSubmissions.length} pending submission(s)`);
+      
+      // Log submission details for debugging
+      if (pendingSubmissions.length > 0) {
+        console.log('Pending submissions details:');
+        pendingSubmissions.forEach((sub, index) => {
+          console.log(`Submission ${index + 1}:`, {
+            id: sub.id,
+            localUuid: sub.localUuid,
+            loanId: sub.loanId,
+            productName: sub.productName,
+            syncStatus: sub.syncStatus,
+            retryCount: sub.retryCount,
+            mediaFilesCount: sub.mediaFiles?.length || 0,
+            createdAt: sub.createdAt,
+          });
+        });
+      }
 
       if (pendingSubmissions.length === 0) {
         console.log('✅ No pending submissions to sync');
         return { success: true, syncedCount: 0, failedCount: 0, errors: [] };
       }
 
+      // Check if any submissions have media files
+      const submissionsWithMedia = pendingSubmissions.filter(s => s.mediaFiles && s.mediaFiles.length > 0);
+      if (submissionsWithMedia.length === 0) {
+        console.log('✅ No submissions with media files to sync');
+        return { success: true, syncedCount: 0, failedCount: 0, errors: [] };
+      }
+
+      console.log(`📤 Syncing ${submissionsWithMedia.length} submission(s) with media files...`);
+
       // Sync each submission
-      for (const submission of pendingSubmissions) {
+      for (const submission of submissionsWithMedia) {
         try {
           await this.syncSubmission(submission);
           syncedCount++;

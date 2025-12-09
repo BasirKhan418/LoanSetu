@@ -2,7 +2,7 @@ import type { Loan } from '@/api/loansService';
 import * as loansService from '@/api/loansService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Bell, Cloud, Globe, Wifi, WifiOff } from 'lucide-react-native';
+import { Bell, Cloud, Globe, Trash2, Wifi, WifiOff } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +23,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { submissionService } from '../../services/submissionService';
+import { syncService } from '../../services/syncservice';
 import { getTranslation } from '../../utils/translations';
 
 const { width, height } = Dimensions.get('window');
@@ -40,6 +42,8 @@ export default function ProfileScreen() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const insets = useSafeAreaInsets();
   const tabBarHeight = Platform.OS === 'ios' 
     ? Math.max(80, 50 + insets.bottom) 
@@ -69,17 +73,28 @@ export default function ProfileScreen() {
     }
   };
 
+  const fetchPendingCount = async () => {
+    try {
+      const count = await submissionService.countPendingSubmissions();
+      setPendingCount(count);
+    } catch (error) {
+      console.error('[Profile] Error fetching pending count:', error);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       fetchLoans(),
-      refreshUserFromBackend()
+      refreshUserFromBackend(),
+      fetchPendingCount()
     ]);
     setRefreshing(false);
   };
 
   useEffect(() => {
     fetchLoans();
+    fetchPendingCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
@@ -117,9 +132,111 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleRefresh = async () => {
-    if (isOnline && refreshUserFromBackend) {
-      await refreshUserFromBackend();
+  const handleClearPendingSubmissions = async () => {
+    try {
+      // First, get the count of pending submissions
+      const count = await submissionService.countPendingSubmissions();
+      
+      if (count === 0) {
+        Alert.alert(
+          'No Pending Data',
+          'There are no pending submissions to clear.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Clear Pending Submissions',
+        `Are you sure you want to delete ${count} pending submission(s)?\n\nThis will permanently remove all unsynced data including photos and videos. This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete All', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const deletedCount = await submissionService.deleteAllPendingSubmissions();
+                Alert.alert(
+                  'Success',
+                  `Successfully deleted ${deletedCount} pending submission(s).`,
+                  [{ text: 'OK' }]
+                );
+              } catch (error) {
+                console.error('Error clearing pending submissions:', error);
+                Alert.alert(
+                  'Error',
+                  'Failed to clear pending submissions. Please try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error checking pending submissions:', error);
+      Alert.alert('Error', 'Failed to check pending submissions.', [{ text: 'OK' }]);
+    }
+  };
+
+  const handleSyncData = async () => {
+    if (!isOnline) {
+      Alert.alert(
+        'Offline',
+        'Please connect to the internet to sync data.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (isSyncing) {
+      return; // Already syncing, do nothing
+    }
+
+    try {
+      setIsSyncing(true);
+      console.log('[Profile] Triggering manual sync...');
+      
+      const result = await syncService.forceSyncNow();
+      
+      if (result.success) {
+        if (result.syncedCount > 0) {
+          Alert.alert(
+            'Sync Complete',
+            `Successfully synced ${result.syncedCount} submission(s).`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'Already Synced',
+            'All submissions are already synced.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Sync Failed',
+          result.errors.join('\n') || 'Failed to sync submissions.',
+          [{ text: 'OK' }]
+          );
+      }
+
+      // Refresh pending count after sync
+      await fetchPendingCount();
+      
+      if (refreshUserFromBackend) {
+        await refreshUserFromBackend();
+      }
+    } catch (error) {
+      console.error('[Profile] Sync error:', error);
+      Alert.alert(
+        'Sync Error',
+        'An error occurred while syncing. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -151,15 +268,7 @@ export default function ProfileScreen() {
                 {isOnline ? getTranslation('online', currentLanguage.code) : getTranslation('offline', currentLanguage.code)}
               </Text>
             </View>
-            {isOnline && (
-              <TouchableOpacity 
-                onPress={handleRefresh}
-                style={styles.connectionStatus}
-              >
-                <Cloud size={16} color="#FFF" />
-                <Text style={styles.connectionText}>{getTranslation('sync', currentLanguage.code)}</Text>
-              </TouchableOpacity>
-            )}
+
           </View>
           
           <View style={styles.profileCard}>
@@ -232,7 +341,7 @@ export default function ProfileScreen() {
                     style={styles.loanCard}
                     onPress={() => {
                       router.push({
-                        pathname: '/loan-verification',
+                        pathname: '/submission-screen',
                         params: {
                           loanId: loan._id,
                           schemeName: loan.loanDetailsId?.name || 'N/A',
@@ -266,17 +375,36 @@ export default function ProfileScreen() {
         </View>
 
         {/* Data Sync Status Card */}
-        <View style={styles.syncCard}>
+        <TouchableOpacity 
+          style={styles.syncCard}
+          onPress={handleSyncData}
+          disabled={!isOnline || isSyncing}
+          activeOpacity={0.7}
+        >
           <View style={styles.syncCardContent}>
             <View style={styles.syncIcon}>
-              <Cloud size={Math.max(20, scale * 22)} color="#FF8C42" strokeWidth={2} />
+              {isSyncing ? (
+                <ActivityIndicator size={Math.max(20, scale * 22)} color="#FF8C42" />
+              ) : (
+                <Cloud size={Math.max(20, scale * 22)} color="#FF8C42" strokeWidth={2} />
+              )}
             </View>
             <View style={styles.syncTextContainer}>
-              <Text style={styles.syncTitle}>{getTranslation('syncData', currentLanguage.code)}</Text>
-              <Text style={styles.syncSubtitle}>{getTranslation('syncSubtitle', currentLanguage.code)}</Text>
+              <Text style={styles.syncTitle}>
+                {isSyncing ? 'Syncing...' : getTranslation('syncData', currentLanguage.code)}
+              </Text>
+              <Text style={styles.syncSubtitle}>
+                {!isOnline 
+                  ? 'Offline - Connect to sync'
+                  : isSyncing
+                  ? 'Please wait...'
+                  : (pendingCount > 0) 
+                  ? `${pendingCount} submission(s) pending upload`
+                  : 'All data synced'}
+              </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Menu Options */}
         <View style={styles.menuSection}>
@@ -309,6 +437,21 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
         
+        {/* Data Management Section */}
+        <TouchableOpacity 
+            style={styles.clearDataButton}
+            onPress={handleClearPendingSubmissions}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuIconContainer}>
+              <Trash2 size={Math.max(20, scale * 22)} color="#EF4444" strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.clearDataText}>Clear Pending Submissions</Text>
+              <Text style={styles.clearDataSubtext}>Delete all unsynced data waiting to be uploaded</Text>
+            </View>
+          </TouchableOpacity>
+
         {/* Logout Section */}
         <View style={styles.logoutSection}>
           <TouchableOpacity onPress={handleLogout} activeOpacity={0.7}>
@@ -749,6 +892,39 @@ const styles = StyleSheet.create({
   menuSection: {
     marginBottom: Math.max(16, height * 0.02),
   },
+  settingsSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Math.max(12, height * 0.015),
+    marginHorizontal: Math.max(16, width * 0.04),
+    marginBottom: Math.max(16, height * 0.02),
+    padding: Math.max(16, width * 0.04),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  clearDataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Math.max(12, height * 0.015),
+    paddingHorizontal: Math.max(12, width * 0.03),
+    backgroundColor: '#FEF2F2',
+    borderRadius: Math.max(10, height * 0.012),
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  clearDataText: {
+    fontSize: Math.max(15, scale * 16),
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 2,
+  },
+  clearDataSubtext: {
+    fontSize: Math.max(12, scale * 13),
+    color: '#991B1B',
+    lineHeight: 16,
+  },
   logoutSection: {
     alignItems: 'center',
     marginTop: Math.max(8, height * 0.01),
@@ -1090,6 +1266,20 @@ const styles = StyleSheet.create({
     fontSize: Math.max(16, scale * 18),
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  syncBadge: {
+    backgroundColor: '#FF8C42',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
 });

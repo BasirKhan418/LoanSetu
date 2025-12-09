@@ -1,7 +1,7 @@
 // apps/mobileapp/contexts/LocationContext.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { updateUserProfile } from '../api/authService';
 import { useAuth } from './AuthContext';
 
 interface UserLocation {
@@ -26,48 +26,42 @@ interface LocationContextType {
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, token, refreshUserFromBackend } = useAuth();
   const [userHomeLocation, setUserHomeLocation] = useState<UserLocation | null>(null);
   const [hasSetLocation, setHasSetLocation] = useState(false);
   const [isLocationPopupVisible, setIsLocationPopupVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasTemporarilyDismissed, setHasTemporarilyDismissed] = useState(false);
 
-  const getLocationStorageKey = (userId: string) => {
-    return `@user_location_${userId}`;
-  };
-
-  const loadStoredLocation = async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const storageKey = getLocationStorageKey(user._id);
-      const storedLocation = await AsyncStorage.getItem(storageKey);
-      if (storedLocation) {
-        const location = JSON.parse(storedLocation);
-        setUserHomeLocation(location);
-        setHasSetLocation(true);
-        setIsLocationPopupVisible(false);
-      } else {
-        // Show popup if location not set for this user and not temporarily dismissed
-        setIsLocationPopupVisible(!hasTemporarilyDismissed);
-      }
-    } catch (error) {
-      console.error('Error loading stored location:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Load location when user changes
+  // Check location when user changes
   useEffect(() => {
     if (user) {
-      // Reset temporary dismissal flag on app reopen (user change)
-      setHasTemporarilyDismissed(false);
-      loadStoredLocation();
+      setIsLoading(true);
+      
+      try {
+        // Check if homeLat and homeLng exist and are not 0
+        const hasLocation = user.homeLat && user.homeLng && user.homeLat !== 0 && user.homeLng !== 0;
+        
+        if (hasLocation) {
+          setUserHomeLocation({
+            latitude: user.homeLat!,
+            longitude: user.homeLng!,
+            timestamp: new Date().toISOString(),
+          });
+          setHasSetLocation(true);
+          setIsLocationPopupVisible(false);
+        } else {
+          // Show popup if location not set - reset temporary dismissal when user changes
+          setUserHomeLocation(null);
+          setHasSetLocation(false);
+          setHasTemporarilyDismissed(false);
+          setIsLocationPopupVisible(true);
+        }
+      } catch (error) {
+        console.error('Error checking user location:', error);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       // Reset when user logs out
       setUserHomeLocation(null);
@@ -76,20 +70,36 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       setHasTemporarilyDismissed(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const saveHomeLocation = async (location: UserLocation) => {
-    if (!user) {
+    if (!user || !token) {
       throw new Error('User not logged in');
     }
 
     try {
-      const storageKey = getLocationStorageKey(user._id);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(location));
+      // Update location in the database via API
+      const response = await updateUserProfile(
+        user._id,
+        {
+          homeLat: location.latitude,
+          homeLng: location.longitude,
+        },
+        token
+      );
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to save location');
+      }
+
+      // Update local state
       setUserHomeLocation(location);
       setHasSetLocation(true);
       setIsLocationPopupVisible(false);
+      
+      // Refresh user data from backend to sync changes
+      await refreshUserFromBackend();
+      
       console.log(`Home location saved successfully for user ${user._id}`);
     } catch (error) {
       console.error('Error saving location:', error);

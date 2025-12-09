@@ -44,6 +44,7 @@ export interface MediaFile {
   geoLat: number;
   geoLng: number;
   timestamp: string;
+  metadata?: string; // JSON string containing EXIF data
   createdAt: string;
 }
 
@@ -71,6 +72,22 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+export interface Loan {
+  id: number;
+  loanId: string;          // Backend loan ID (unique)
+  beneficiaryId: string;
+  beneficiaryName: string;
+  loanReferenceId: string;
+  schemeName: string;
+  sanctionAmount: number;
+  sanctionDate: string;
+  assetType: string;
+  tenantId?: string;
+  submissionId?: number;   // Link to submission if exists
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class Database {
   private db: SQLite.SQLiteDatabase | null = null;
 
@@ -87,6 +104,9 @@ export class Database {
 
   private async createTables() {
     if (!this.db) throw new Error('Database not initialized');
+
+    // Run migrations for existing databases
+    await this.runMigrations();
 
     // Create users table (single row for current user)
     await this.db.execAsync(`
@@ -128,12 +148,33 @@ export class Database {
       );
     `);
 
+    // Create loans table
+    await this.db.execAsync(`
+      CREATE TABLE IF NOT EXISTS loans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loanId TEXT NOT NULL UNIQUE,
+        beneficiaryId TEXT NOT NULL,
+        beneficiaryName TEXT NOT NULL,
+        loanReferenceId TEXT NOT NULL,
+        schemeName TEXT NOT NULL,
+        sanctionAmount REAL NOT NULL,
+        sanctionDate TEXT NOT NULL,
+        assetType TEXT NOT NULL,
+        tenantId TEXT,
+        submissionId INTEGER,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (submissionId) REFERENCES submissions (id) ON DELETE SET NULL
+      );
+    `);
+
     // Create submissions table
     await this.db.execAsync(`
       CREATE TABLE IF NOT EXISTS submissions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         localUuid TEXT NOT NULL UNIQUE,
-        beneficiaryId INTEGER NOT NULL,
+        beneficiaryId TEXT NOT NULL,
+        beneficiaryName TEXT,
         loanId TEXT,
         loanReferenceId TEXT,
         loanSchemeName TEXT,
@@ -149,8 +190,8 @@ export class Database {
         errorMessage TEXT,
         retryCount INTEGER DEFAULT 0,
         createdAt TEXT NOT NULL,
-        syncedAt TEXT,
-        FOREIGN KEY (beneficiaryId) REFERENCES beneficiaries (id)
+        updatedAt TEXT,
+        syncedAt TEXT
       );
     `);
 
@@ -159,8 +200,8 @@ export class Database {
       CREATE TABLE IF NOT EXISTS media_files (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         submissionId INTEGER NOT NULL,
-        type TEXT NOT NULL CHECK(type IN ('PHOTO', 'VIDEO', 'INVOICE')),
-        photoType TEXT CHECK(photoType IN ('front', 'back', 'left', 'right')),
+        type TEXT NOT NULL CHECK(type IN ('PHOTO', 'VIDEO', 'INVOICE', 'DOCUMENT')),
+        photoType TEXT,
         localPath TEXT NOT NULL,
         mimeType TEXT NOT NULL,
         fileSize INTEGER NOT NULL,
@@ -176,10 +217,108 @@ export class Database {
     await this.db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_submissions_syncStatus ON submissions(syncStatus);
       CREATE INDEX IF NOT EXISTS idx_submissions_beneficiaryId ON submissions(beneficiaryId);
+      CREATE INDEX IF NOT EXISTS idx_submissions_loanId ON submissions(loanId);
       CREATE INDEX IF NOT EXISTS idx_media_files_submissionId ON media_files(submissionId);
+      CREATE INDEX IF NOT EXISTS idx_loans_loanId ON loans(loanId);
+      CREATE INDEX IF NOT EXISTS idx_loans_beneficiaryId ON loans(beneficiaryId);
     `);
 
     console.log('Database tables created successfully');
+  }
+
+  private async runMigrations() {
+    if (!this.db) return;
+
+    try {
+      // Check if beneficiaryName column exists in submissions table
+      const submissionsInfo = await this.db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(submissions)"
+      );
+      
+      const hasBeneficiaryName = submissionsInfo.some(col => col.name === 'beneficiaryName');
+      const hasUpdatedAt = submissionsInfo.some(col => col.name === 'updatedAt');
+      
+      if (!hasBeneficiaryName) {
+        console.log('Running migration: Adding beneficiaryName column');
+        await this.db.execAsync(
+          'ALTER TABLE submissions ADD COLUMN beneficiaryName TEXT'
+        );
+        console.log('Migration completed: beneficiaryName column added');
+      }
+
+      if (!hasUpdatedAt) {
+        console.log('Running migration: Adding updatedAt column');
+        await this.db.execAsync(
+          'ALTER TABLE submissions ADD COLUMN updatedAt TEXT'
+        );
+        console.log('Migration completed: updatedAt column added');
+      }
+
+      // Check if media_files table has metadata column
+      const mediaFilesInfo = await this.db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(media_files)"
+      );
+      
+      const hasMetadata = mediaFilesInfo.some(col => col.name === 'metadata');
+      
+      if (!hasMetadata) {
+        console.log('Running migration: Adding metadata column to media_files');
+        await this.db.execAsync(
+          'ALTER TABLE media_files ADD COLUMN metadata TEXT'
+        );
+        console.log('Migration completed: metadata column added');
+      }
+
+      // Check if media_files table has old CHECK constraint on photoType
+      // We need to recreate the table to remove the constraint
+      const mediaInfo = await this.db.getAllAsync<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='media_files'"
+      );
+      
+      if (mediaInfo.length > 0 && mediaInfo[0].sql.includes("photoType IN ('front', 'back', 'left', 'right')")) {
+        console.log('Running migration: Recreating media_files table');
+        
+        // Create backup table
+        await this.db.execAsync(`
+          CREATE TABLE media_files_backup AS SELECT * FROM media_files;
+        `);
+        
+        // Drop old table
+        await this.db.execAsync('DROP TABLE media_files');
+        
+        // Create new table without CHECK constraint but with metadata column
+        await this.db.execAsync(`
+          CREATE TABLE media_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            submissionId INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('PHOTO', 'VIDEO', 'INVOICE', 'DOCUMENT')),
+            photoType TEXT,
+            localPath TEXT NOT NULL,
+            mimeType TEXT NOT NULL,
+            fileSize INTEGER NOT NULL,
+            geoLat REAL NOT NULL,
+            geoLng REAL NOT NULL,
+            timestamp TEXT NOT NULL,
+            metadata TEXT,
+            createdAt TEXT NOT NULL,
+            FOREIGN KEY (submissionId) REFERENCES submissions (id) ON DELETE CASCADE
+          );
+        `);
+        
+        // Restore data
+        await this.db.execAsync(`
+          INSERT INTO media_files SELECT * FROM media_files_backup;
+        `);
+        
+        // Drop backup
+        await this.db.execAsync('DROP TABLE media_files_backup');
+        
+        console.log('Migration completed: media_files table recreated');
+      }
+    } catch (error) {
+      console.log('Migration check:', error);
+      // Ignore errors if table doesn't exist yet
+    }
   }
 
   getDatabase(): SQLite.SQLiteDatabase {

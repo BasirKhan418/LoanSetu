@@ -160,34 +160,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // You can implement a /verify or /me endpoint call here
-      // For now, we'll just mark as verified
-      await database.updateUser({
-        lastVerifiedAt: new Date().toISOString(),
-      });
+      console.log('[Auth] Fetching latest user data from backend...');
       
-      const updatedProfile = await database.getUser();
-      if (updatedProfile) {
+      // Fetch latest user data from backend
+      const response = await authService.getCurrentUser(token);
+      
+      if (response.success && response.data) {
+        const backendUser = response.data;
+        
+        // Update SQLite with latest data
+        await database.updateUser({
+          name: backendUser.name,
+          email: backendUser.email,
+          img: backendUser.img,
+          addressLine1: backendUser.addressLine1,
+          addressLine2: backendUser.addressLine2,
+          village: backendUser.village,
+          block: backendUser.block,
+          district: backendUser.district,
+          state: backendUser.state,
+          pincode: backendUser.pincode,
+          homeLat: backendUser.homeLat,
+          homeLng: backendUser.homeLng,
+          tenantId: backendUser.tenantId,
+          isActive: backendUser.isActive,
+          isVerified: backendUser.isVerified,
+          lastVerifiedAt: new Date().toISOString(),
+        });
+        
+        // Update local state
         const userData: User = {
-          _id: updatedProfile.userId,
-          phone: updatedProfile.phone,
-          name: updatedProfile.name,
-          email: updatedProfile.email,
-          img: updatedProfile.img,
-          addressLine1: updatedProfile.addressLine1,
-          addressLine2: updatedProfile.addressLine2,
-          village: updatedProfile.village,
-          block: updatedProfile.block,
-          district: updatedProfile.district,
-          state: updatedProfile.state,
-          pincode: updatedProfile.pincode,
-          homeLat: updatedProfile.homeLat,
-          homeLng: updatedProfile.homeLng,
-          tenantId: updatedProfile.tenantId,
-          isActive: updatedProfile.isActive,
-          isVerified: updatedProfile.isVerified,
+          _id: backendUser._id,
+          phone: backendUser.phone,
+          name: backendUser.name,
+          email: backendUser.email,
+          img: backendUser.img,
+          addressLine1: backendUser.addressLine1,
+          addressLine2: backendUser.addressLine2,
+          village: backendUser.village,
+          block: backendUser.block,
+          district: backendUser.district,
+          state: backendUser.state,
+          pincode: backendUser.pincode,
+          homeLat: backendUser.homeLat,
+          homeLng: backendUser.homeLng,
+          tenantId: backendUser.tenantId,
+          isActive: backendUser.isActive,
+          isVerified: backendUser.isVerified,
         };
         setUser(userData);
+        console.log('[Auth] User data refreshed successfully');
       }
     } catch (error) {
       console.error('[Auth] Refresh failed:', error);

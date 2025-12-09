@@ -95,10 +95,50 @@ export class SubmissionService {
     const now = new Date().toISOString();
 
     try {
+      // Check if loan already has a pending submission
+      if (data.loanId) {
+        const { loanService } = await import('./loanService');
+        const hasPending = await loanService.hasPendingSubmission(data.loanId);
+        
+        if (hasPending) {
+          console.warn(`⚠️ Loan ${data.loanId} already has a pending submission. Skipping creation.`);
+          throw new Error('A submission for this loan already exists and is pending sync. Please wait for it to complete.');
+        }
+      }
+
       // Start transaction for atomicity - all or nothing
       await db.execAsync('BEGIN TRANSACTION');
 
-      // 1. Insert submission record with PENDING status
+      // 1. Save or update loan if loan data is provided
+      if (data.loanId) {
+        try {
+          // Parse product details to get loan info
+          const productDetails = JSON.parse(data.productDetails);
+          
+          // Import loanService dynamically to avoid circular dependency
+          const { loanService } = await import('./loanService');
+          
+          // Save or update the loan
+          await loanService.saveOrUpdateLoan({
+            loanId: data.loanId,
+            beneficiaryId: productDetails.beneficiaryId || data.beneficiaryId,
+            beneficiaryName: productDetails.beneficiaryName || 'Unknown',
+            loanReferenceId: data.loanReferenceId || productDetails.loanReferenceId || '',
+            schemeName: data.loanSchemeName || productDetails.schemeName || '',
+            sanctionAmount: productDetails.sanctionAmount || parseFloat(data.loanAmount || '0'),
+            sanctionDate: productDetails.sanctionDate || now,
+            assetType: data.productName,
+            tenantId: productDetails.tenantId,
+          });
+          
+          console.log(`Loan saved/updated: ${data.loanId}`);
+        } catch (loanError) {
+          console.error('Error saving loan, continuing with submission:', loanError);
+          // Don't fail the whole transaction if loan save fails
+        }
+      }
+
+      // 2. Insert submission record with PENDING status
       const submissionResult = await db.runAsync(
         `INSERT INTO submissions (
           localUuid, beneficiaryId, loanId, loanReferenceId, loanSchemeName, loanAmount,
@@ -123,7 +163,18 @@ export class SubmissionService {
 
       const submissionId = submissionResult.lastInsertRowId;
 
-      // 2. Save and insert product photos (4 angles)
+      // 3. Link submission to loan if loanId exists
+      if (data.loanId) {
+        try {
+          const { loanService } = await import('./loanService');
+          await loanService.linkSubmissionToLoan(data.loanId, submissionId);
+        } catch (linkError) {
+          console.error('Error linking submission to loan:', linkError);
+          // Don't fail the transaction
+        }
+      }
+
+      // 4. Save and insert product photos (4 angles)
       for (const photo of data.photos) {
         // Save file to permanent storage
         const savedPath = await this.saveFile(photo.uri, localUuid, photo.type);
@@ -133,8 +184,8 @@ export class SubmissionService {
         await db.runAsync(
           `INSERT INTO media_files (
             submissionId, type, photoType, localPath, mimeType, fileSize,
-            geoLat, geoLng, timestamp, createdAt
-          ) VALUES (?, 'PHOTO', ?, ?, 'image/jpeg', ?, ?, ?, ?, ?)`,
+            geoLat, geoLng, timestamp, metadata, createdAt
+          ) VALUES (?, 'PHOTO', ?, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?)`,
 
           [
             submissionId,
@@ -144,20 +195,21 @@ export class SubmissionService {
             photo.latitude,
             photo.longitude,
             photo.timestamp,
+            photo.metadata || null,
             now
           ]
         );
       }
 
-      // 3. Save and insert invoice photo
+      // 5. Save and insert invoice photo
       const invoicePath = await this.saveFile(data.invoicePhoto.uri, localUuid, 'invoice');
       const invoiceSize = await this.getFileSize(invoicePath);
 
       await db.runAsync(
         `INSERT INTO media_files (
           submissionId, type, photoType, localPath, mimeType, fileSize,
-          geoLat, geoLng, timestamp, createdAt
-        ) VALUES (?, 'INVOICE', NULL, ?, 'image/jpeg', ?, ?, ?, ?, ?)`,
+          geoLat, geoLng, timestamp, metadata, createdAt
+        ) VALUES (?, 'INVOICE', NULL, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?)`,
 
         [
           submissionId,
@@ -166,6 +218,7 @@ export class SubmissionService {
           data.invoicePhoto.latitude,
           data.invoicePhoto.longitude,
           data.invoicePhoto.timestamp,
+          data.invoicePhoto.metadata || null,
           now
         ]
       );
@@ -564,6 +617,76 @@ export class SubmissionService {
       return result?.total || 0;
     } catch (error) {
       console.error('Error getting total storage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all pending submissions
+   * This will delete submissions with syncStatus = 'PENDING'
+   */
+  async deleteAllPendingSubmissions(): Promise<number> {
+    const db = database.getDatabase();
+
+    try {
+      // Get all pending submissions
+      const pendingSubmissions = await db.getAllAsync<Submission>(
+        'SELECT * FROM submissions WHERE syncStatus = ?',
+        ['PENDING']
+      );
+
+      let deletedCount = 0;
+
+      for (const submission of pendingSubmissions) {
+        // Get media files to delete physical files
+        const mediaFiles = await db.getAllAsync<MediaFile>(
+          'SELECT * FROM media_files WHERE submissionId = ?',
+          [submission.id]
+        );
+
+        // Delete physical files
+        for (const file of mediaFiles) {
+          try {
+            const fileObj = new File(file.localPath);
+            if (fileObj.exists) {
+              await fileObj.delete();
+            }
+          } catch (error) {
+            console.error('Error deleting file:', error);
+          }
+        }
+
+        // Delete submission (CASCADE will delete media_files records)
+        await db.runAsync('DELETE FROM submissions WHERE id = ?', [submission.id]);
+        deletedCount++;
+      }
+
+      console.log(`🗑️ Deleted ${deletedCount} pending submissions`);
+      return deletedCount;
+    } catch (error) {
+      console.error('Error deleting pending submissions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Count pending submissions
+   */
+  async countPendingSubmissions(): Promise<number> {
+    const db = database.getDatabase();
+
+    try {
+      // Only count submissions that have media files
+      const result = await db.getFirstAsync<{ count: number }>(
+        `SELECT COUNT(DISTINCT s.id) as count 
+         FROM submissions s 
+         INNER JOIN media_files m ON s.id = m.submissionId 
+         WHERE s.syncStatus = ?`,
+        ['PENDING']
+      );
+      return result?.count || 0;
+    } catch (error) {
+      console.error('Error counting pending submissions:', error);
       throw error;
     }
   }
